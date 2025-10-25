@@ -4,7 +4,7 @@
 ![downloads](https://img.shields.io/github/downloads/miyako/llama.cpp/total)
 
 # llama.cpp
-Local inference engine (repository name change to comply with dependency manager(
+Local inference engine (repository name change to comply with dependency manager)
 
 ## Note for CMake
 
