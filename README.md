@@ -5,3 +5,14 @@
 
 # llama.cpp
 Local inference engine
+
+## Note for CMake
+
+#### for `x86_64`
+
+* set `GGML_CPU` to `FALSE`
+* set `CMAKE_OSX_ARCHITECTURES`  to `x86_64`
+
+## for both
+
+* set `BUILD_SHARED_LIBS` to `FALSE`
