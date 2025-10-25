@@ -13,7 +13,10 @@ Local inference engine
 * set `GGML_CPU` to `FALSE`
 * set `CMAKE_OSX_ARCHITECTURES`  to `x86_64`
 
-## for all
+#### for Windows
 
 * set `LLAMA_CURL` to `FALSE`
+* 
+#### for All
+
 * set `BUILD_SHARED_LIBS` to `FALSE`
