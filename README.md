@@ -16,7 +16,9 @@ Local inference engine
 #### for Windows
 
 * set `LLAMA_CURL` to `FALSE`
-* 
+
+c.f. https://github.com/ggml-org/llama.cpp/issues/9937
+
 #### for All
 
 * set `BUILD_SHARED_LIBS` to `FALSE`
