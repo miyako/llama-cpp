@@ -16,3 +16,7 @@ Local inference engine
 ### for both
 
 * set `BUILD_SHARED_LIBS` to `FALSE`
+
+## for all
+
+* set `LLAMA_CURL` to `FALSE`
