@@ -21,12 +21,12 @@ Function start($option : Object) : 4D:C1709.SystemWorker
 	
 	For each ($arg; OB Entries:C1720($option))
 		Case of 
-			: (["model"; "model-url"; \
-				"docker-repo"; \
-				"hf-repo"; \
-				"hf-repo-draf"; \
-				"hf-file"; "hf-repo-v"; \
-				"hf-file-v"; "hf-token"].includes($arg.key))
+			: (["model"; "model_url"; \
+				"docker_repo"; \
+				"hf_repo"; \
+				"hf_repo_draf"; \
+				"hf_file"; "hf_repo_v"; \
+				"hf_file_v"; "hf_token"].includes($arg.key))
 				continue
 		End case 
 		$valueType:=Value type:C1509($arg.value)
