@@ -6,7 +6,7 @@
   ],
   "license": "MIT",
   "repository": "https://github.com/miyako/llama.cpp",
-  "version": "20.0.4",
+  "version": "20.0.5",
   "tool": {
     "platform": "macos",
     "branch": "20.x",
