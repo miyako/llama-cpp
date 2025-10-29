@@ -6,6 +6,14 @@
 # llama.cpp
 Local inference engine (repository name changed to comply with dependency manager)
 
+> [!WARNING]
+> Windows CLI is built without `libcurl`.
+> That means network feature such as
+> ```
+> -hf elyza/Llama-3-ELYZA-JP-8B-GGUF:Q4_K_M
+> ```
+> only works on Mac.
+
 ## Note for CMake
 
 #### for `x86_64`
