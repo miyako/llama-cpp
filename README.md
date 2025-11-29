@@ -6,14 +6,6 @@
 # llama.cpp
 Local inference engine (repository name changed to comply with dependency manager)
 
-> [!WARNING]
-> Windows CLI is built without `libcurl`.
-> That means network feature such as
-> ```
-> llama-server -hf elyza/Llama-3-ELYZA-JP-8B-GGUF:Q4_K_M
-> ```
-> only works on Mac.
-
 ## Note for CMake
 
 #### for `x86_64`
@@ -23,9 +15,18 @@ Local inference engine (repository name changed to comply with dependency manage
 
 #### for Windows
 
-* set `LLAMA_CURL` to `FALSE`
+~~set `LLAMA_CURL` to `FALSE`~~
+~~c.f. https://github.com/ggml-org/llama.cpp/issues/9937~~
 
-c.f. https://github.com/ggml-org/llama.cpp/issues/9937
+```
+cmake -S . -B build -A x64
+ -DLLAMA_STATIC=ON
+ -DLLAMA_DIRECTML=ON
+ -DCMAKE_TOOLCHAIN_FILE={...\vcpkg\scripts\buildsystems\vcpkg.cmake}
+ -DCURL_INCLUDE_DIR={\vcpkg\installed\x64-windows-static\include}
+ -DCURL_LIBRARY={\vcpkg\installed\x64-windows-static\lib\libcurl.lib}
+cmake --build build --config Release
+```
 
 #### for All
 
