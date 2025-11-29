@@ -30,6 +30,21 @@ cmake -S . -B build -A x64
 cmake --build build --config Release
 ```
 
+* open project sith visual studio
+* add curl include paths
+* add libraries
+
+```
+Crypt32.lib
+Secur32.lib
+Iphlpapi.lib
+libcurl.lib
+zlib.lib
+ws2_32.lib
+``` 
+
+* build each target with `MT`
+
 #### for All
 
 * set `BUILD_SHARED_LIBS` to `FALSE`
