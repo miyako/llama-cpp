@@ -13,8 +13,6 @@ Class constructor($command : Text; $controller : 4D:C1709.Class)
 			$program:="llama-embedding"
 		: ($command="gguf")
 			$program:="llama-gguf"
-		: ($command="perplexity")
-			$program:="llama-perplexity"
 		: ($command="quantize")
 			$program:="llama-quantize"
 		: ($command="cli")
