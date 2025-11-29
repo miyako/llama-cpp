@@ -4,16 +4,20 @@
 ![downloads](https://img.shields.io/github/downloads/miyako/llama-cpp/total)
 
 # llama.cpp
-Local inference engine (repository name changed to comply with dependency manager)
+Local inference engine
 
-## Note for CMake
+**aknowledgements**: [ggml-org/llama.cpp](https://github.com/ggml-org/llama.cpp)
 
-#### for `x86_64`
+### Apple Silicon
+
+* set `BUILD_SHARED_LIBS` to `FALSE`
+ 
+### Intel
 
 * set `GGML_CPU` to `FALSE`
 * set `CMAKE_OSX_ARCHITECTURES`  to `x86_64`
 
-#### for Windows
+### Windows
 
 ~~set `LLAMA_CURL` to `FALSE`~~
 ~~c.f. https://github.com/ggml-org/llama.cpp/issues/9937~~
@@ -44,7 +48,3 @@ ws2_32.lib
 ``` 
 
 * build each target with `MT`
-
-#### for All
-
-* set `BUILD_SHARED_LIBS` to `FALSE`
