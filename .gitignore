@@ -1,2 +1,3 @@
 llama-cpp/userPreferences.*
-llama-cpp/Project/DerivedData/methodAttributes.json
+llama-cpp/Project/DerivedData/*
+llama-cpp/Data/*
