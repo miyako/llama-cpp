@@ -1,4 +1,4 @@
 //%attributes = {"invisible":true}
-var $llama : cs:C1710.server
-$llama:=cs:C1710.server.new()
+var $llama : cs:C1710.llama
+$llama:=cs:C1710.llama.new()
 $llama.terminate()

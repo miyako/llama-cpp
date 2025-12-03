@@ -1,0 +1,72 @@
+.code-wrapper {
+  position: relative;
+  margin: 1.2em 0;
+}
+
+/* Style for scrollable code */
+.code-wrapper pre {
+  overflow-x: auto;
+  padding: 1em;
+  background: #1e1e1e;
+  color: #eee;
+  border-radius: 8px;
+  font-family: Menlo, Monaco, Consolas, monospace;
+  font-size: 0.9em;
+}
+
+/* ChatGPT-style button */
+.copy-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #ccc;
+  padding: 4px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.8em;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  transition: background 0.2s, color 0.2s, border-color 0.2s;
+  backdrop-filter: blur(4px);
+}
+
+.copy-btn:hover {
+  background: rgba(255, 255, 255, 0.15);
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+/* Tooltip for 'Copied!' */
+.copy-btn::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  top: -1.8em;
+  right: 0;
+  background: #444;
+  color: #fff;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 0.7em;
+  white-space: nowrap;
+  opacity: 0;
+  transform: translateY(4px);
+  pointer-events: none;
+  transition: opacity 0.2s, transform 0.2s;
+}
+
+.copy-btn.show-tooltip::after {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Optional: smooth fadeout for the tooltip */
+@keyframes fadeout {
+  to {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}

@@ -3,6 +3,6 @@
 <base name="llama-cpp" uuid="C42CAA18FF4F46A9BD768665ADA94A96" collation_locale="ja">
 	<schema name="DEFAULT_SCHEMA"/>
 	<base_extra>
-		<journal_file journal_file_enabled="true"/>
+		<journal_file journal_file_enabled="false"/>
 	</base_extra>
 </base>
