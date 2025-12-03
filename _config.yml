@@ -1,4 +1,25 @@
 theme: jekyll-theme-minimal
+
+markdown: kramdown
 kramdown:
-  syntax_highlighter_opts:
-    disable : true
+  syntax_highlighter: rouge
+highlighter: rouge
+plugins_dir: _plugins
+baseurl: /llama-cpp
+
+title: "llama.cpp"
+description: "Use llama.cpp from 4D"
+logo: "/assets/logo.png"   # optional
+show_downloads: true       # controls the download links in header
+github:
+  is_user_page: true
+  owner_url: "https://github.com/miyako"
+  repository_url: "https://github.com/miyako/llama-cpp"
+  is_project_page: false
+
+exclude:
+  - "vendor"
+  - "resources"
+  - "LICENSE"
+  - "README.md"
+  - "Gemfile"
