@@ -64,7 +64,7 @@ curl -X POST http://127.0.0.1:8080/v1/embeddings \
      -d '{"input":"The quick brown fox jumps over the lazy dog."}'
 ```
 
-Or, use AI Kit
+Or, use AI Kit:
 
 ```4d
 var $AIClient : cs.AIKit.OpenAI
