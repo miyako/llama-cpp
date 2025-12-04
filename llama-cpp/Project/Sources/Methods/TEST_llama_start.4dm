@@ -1,7 +1,7 @@
 //%attributes = {"invisible":true}
 var $llama : cs:C1710.llama
 
-If (True:C214)
+If (False:C215)
 	$llama:=cs:C1710.llama.new()  //default
 Else 
 	var $modelsFolder : 4D:C1709.Folder
@@ -28,5 +28,5 @@ Else
 		temp: 0.7; \
 		top_k: 40; \
 		top_p: 0.9; \
-		repeat_penalty: 1.1})
+		repeat_penalty: 1.1}; Formula:C1597(ALERT:C41(This:C1470.file.name+($1.success ? " started!" : " did not start..."))))
 End if 

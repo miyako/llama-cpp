@@ -38,16 +38,16 @@ Else
     End case 
     var $port : Integer
     $port:=8080
-    $llama:=cs.llama.new($port; $file; $URL; {\
-      ctx_size: 2048; \
-      batch_size: 2048; \
-      threads: 4; \
-      threads_batch: 4; \
-      threads_http: 4; \
-      temp: 0.7; \
-      top_k: 40; \
-      top_p: 0.9; \
-      repea]t_penalty: 1.1})
+    $llama:=cs.llama.llama.new($port; $file; $URL; {\
+        ctx_size: 2048; \
+        batch_size: 2048; \
+        threads: 4; \
+        threads_batch: 4; \
+        threads_http: 4; \
+        temp: 0.7; \
+        top_k: 40; \
+        top_p: 0.9; \
+        repeat_penalty: 1.1}; Formula(ALERT(This.file.name+($1.success ? " started!" : " did not start..."))))
 End if
 ```
 
