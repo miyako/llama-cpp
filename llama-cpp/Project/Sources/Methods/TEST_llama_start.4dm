@@ -33,6 +33,7 @@ embeddings
 		temp: 0.7; \
 		top_k: 40; \
 		top_p: 0.9; \
+		log_disable: True:C214; \
 		repeat_penalty: 1.1}; Formula:C1597(ALERT:C41(This:C1470.file.name+($1.success ? " started!" : " did not start..."))))
 	
 /*
@@ -51,6 +52,7 @@ chat/completion (with images)
 		temp: 0.7; \
 		top_k: 40; \
 		top_p: 0.9; \
+		log_disable: True:C214; \
 		repeat_penalty: 1.1}; Formula:C1597(ALERT:C41(This:C1470.file.name+($1.success ? " started!" : " did not start..."))))
 	
 End if 
