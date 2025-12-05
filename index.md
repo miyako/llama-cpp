@@ -106,7 +106,7 @@ llama.cpp supports OCR if you use a model converted to .gguf. `Q4_K_M` is genera
 |Model|Parameters|Size|
 |-|-:|-:|
 |[Llama-3.2-11B-Vision-Instruct.Q4_K_M.gguf](https://huggingface.co/leafspark/Llama-3.2-11B-Vision-Instruct-GGUF/resolve/main/Llama-3.2-11B-Vision-Instruct.Q4_K_M.gguf)|`11`B|`5.96`GB|
-|[MiniCPM-V-2_6-GGUF](https://huggingface.co/second-state/MiniCPM-V-2_6-GGUF/resolve/main/MiniCPM-V-2_6-Q4_K_M.gguf)|`8`B|`4.68`GB|
+|[MiniCPM-V-2_6-Q4_K_M.gguf](https://huggingface.co/second-state/MiniCPM-V-2_6-GGUF/resolve/main/MiniCPM-V-2_6-Q4_K_M.gguf)|`8`B|`4.68`GB|
 |[Qwen2-VL-7B-Instruct-Q4_K_M.gguf](https://huggingface.co/bartowski/Qwen2-VL-7B-Instruct-GGUF/resolve/main/Qwen2-VL-7B-Instruct-Q4_K_M.gguf)|`7`B|`4.68`GB|
 |[Qwen2-VL-2B-Instruct-Q4_K_M.gguf](https://huggingface.co/bartowski/Qwen2-VL-2B-Instruct-GGUF/resolve/main/Qwen2-VL-2B-Instruct-Q4_K_M.gguf)|`2`B|`986`MB|
 
