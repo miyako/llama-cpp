@@ -109,3 +109,7 @@ llama.cpp supports OCR if you use a model converted to .gguf. `Q4_K_M` is genera
 |[MiniCPM-V-2_6-GGUF](https://huggingface.co/second-state/MiniCPM-V-2_6-GGUF/resolve/main/MiniCPM-V-2_6-Q4_K_M.gguf)|`8`B|`4.68`GB|
 |[Qwen2-VL-7B-Instruct-Q4_K_M.gguf](https://huggingface.co/bartowski/Qwen2-VL-7B-Instruct-GGUF/resolve/main/Qwen2-VL-7B-Instruct-Q4_K_M.gguf)|`7`B|`4.68`GB|
 |[Qwen2-VL-2B-Instruct-Q4_K_M.gguf](https://huggingface.co/bartowski/Qwen2-VL-2B-Instruct-GGUF/resolve/main/Qwen2-VL-2B-Instruct-Q4_K_M.gguf)|`2`B|`986`MB|
+
+#### Embeddings
+
+LLMs (Decoder-only models) are trained to predict the next word, not to create searchable vector representation of sentences. To create searchable vector representations of images descriptions, you need to launch a 2nd instance of llama.cpp to run an embeddings model.
