@@ -19,6 +19,11 @@ Else
 	End case 
 	var $port : Integer
 	$port:=8080
+	
+/*
+embeddings
+*/
+	
 	$llama:=cs:C1710.llama.new($port; $file; $URL; {\
 		ctx_size: 2048; \
 		batch_size: 2048; \
@@ -29,4 +34,23 @@ Else
 		top_k: 40; \
 		top_p: 0.9; \
 		repeat_penalty: 1.1}; Formula:C1597(ALERT:C41(This:C1470.file.name+($1.success ? " started!" : " did not start..."))))
+	
+/*
+chat/completion (with images)
+*/
+	
+	$file:=$modelsFolder.file("Qwen2-VL-2B-Instruct-Q4_K_M")
+	$URL:="https://huggingface.co/bartowski/Qwen2-VL-2B-Instruct-GGUF/resolve/main/Qwen2-VL-2B-Instruct-Q4_K_M.gguf"
+	$port:=8081
+	$llama:=cs:C1710.llama.new($port; $file; $URL; {\
+		ctx_size: 2048; \
+		batch_size: 2048; \
+		threads: 4; \
+		threads_batch: 4; \
+		threads_http: 4; \
+		temp: 0.7; \
+		top_k: 40; \
+		top_p: 0.9; \
+		repeat_penalty: 1.1}; Formula:C1597(ALERT:C41(This:C1470.file.name+($1.success ? " started!" : " did not start..."))))
+	
 End if 
