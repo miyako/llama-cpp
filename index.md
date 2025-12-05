@@ -112,5 +112,68 @@ llama.cpp supports OCR if you use a model converted to .gguf. `Q4_K_M` is genera
 
 #### Embeddings
 
-LLMs (decoder-only models) are trained to predict the next word, not to create searchable vector representation of sentences. To create searchable vector representations of images descriptions, you need to launch a 2nd instance of llama.cpp to run an embeddings model.
+Decoder-only LLMs are trained to predict the next word, not to create searchable vector representation of sentences. To create searchable vector representations of images descriptions, you need to launch a 2nd instance to run an embeddings model.
+
+You can start mulitple instances by calling `.start` with a different port number:
+
+```4d
+var $llama : cs.llama
+
 If (False)
+    $llama:=cs.llama.new()  //default
+Else 
+    var $modelsFolder : 4D.Folder
+    $modelsFolder:=Folder(fk home folder).folder(".llama-cpp")
+    var $lang; $URL : Text
+    var $file : 4D.File
+    $lang:=Get database localization(Current localization)
+    Case of 
+        : ($lang="ja")
+            $file:=$modelsFolder.file("Llama-3-ELYZA-JP-8B-q4_k_m.gguf")
+            $URL:="https://huggingface.co/elyza/Llama-3-ELYZA-JP-8B-GGUF/resolve/main/Llama-3-ELYZA-JP-8B-q4_k_m.gguf"
+        Else 
+            $file:=$modelsFolder.file("nomic-embed-text-v1.5.f16.gguf")
+            $URL:="https://huggingface.co/nomic-ai/nomic-embed-text-v1.5-GGUF/resolve/main/nomic-embed-text-v1.5.f16.gguf"
+    End case 
+    var $port : Integer
+    $port:=8080
+    
+    /*
+        embeddings
+    */
+    
+    $llama:=cs.llama.new($port; $file; $URL; {\
+    ctx_size: 2048; \
+    batch_size: 2048; \
+    threads: 4; \
+    threads_batch: 4; \
+    threads_http: 4; \
+    temp: 0.7; \
+    top_k: 40; \
+    top_p: 0.9; \
+    repeat_penalty: 1.1}; Formula(ALERT(This.file.name+($1.success ? " started!" : " did not start..."))))
+    
+    /*
+        chat/completion (with images)
+    */
+    
+    $file:=$modelsFolder.file("Qwen2-VL-2B-Instruct-Q4_K_M")
+    $URL:="https://huggingface.co/bartowski/Qwen2-VL-2B-Instruct-GGUF/resolve/main/Qwen2-VL-2B-Instruct-Q4_K_M.gguf"
+    $port:=8081
+    $llama:=cs.llama.new($port; $file; $URL; {\
+    ctx_size: 2048; \
+    batch_size: 2048; \
+    threads: 4; \
+    threads_batch: 4; \
+    threads_http: 4; \
+    temp: 0.7; \
+    top_k: 40; \
+    top_p: 0.9; \
+    repeat_penalty: 1.1}; Formula(ALERT(This.file.name+($1.success ? " started!" : " did not start..."))))
+    
+End if 
+```
+
+`.terminate()` will terminate all instances.
+
+llama.cpp does not support the `/v1/files` API so you need to reference the image via a data URI in your chat completion request.
