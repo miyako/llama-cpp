@@ -114,7 +114,7 @@ llama.cpp supports OCR if you use a model converted to .gguf. `Q4_K_M` is genera
 
 Decoder-only LLMs are trained to predict the next word, not to create searchable vector representation of sentences. To create searchable vector representations of images descriptions, you need to launch a 2nd instance to run an embeddings model.
 
-You can start mulitple instances by calling `.start` with a different port number:
+You can start multiple instances by calling `.start` with a different port number:
 
 ```4d
 var $llama : cs.llama
