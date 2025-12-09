@@ -53,7 +53,7 @@ End if
 
 Unless the server is already running (in which case the costructor does nothing), the following procedure runs in the background:
 
-1. The specified model is download via HTTP
+1. The specified model is downloaded via HTTP
 2. The `llama-server` program is started
 
 Now you can test the server:
