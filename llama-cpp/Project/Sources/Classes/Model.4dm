@@ -27,7 +27,7 @@ Class constructor($port : Integer; $file : 4D:C1709.File; $URL : Text; $options 
 	This:C1470._onResponse:=$formula
 	This:C1470.returnResponseBody:=False:C215
 	This:C1470.decodeData:=False:C215
-	This:C1470.bufferSize:=1*(1024^2)
+	This:C1470.bufferSize:=10*(1024^2)
 	
 	Case of 
 		: (OB Instance of:C1731($file; 4D:C1709.File))
@@ -55,7 +55,7 @@ Function head()
 	$request:=4D:C1709.HTTPRequest.new(This:C1470.URL; This:C1470).wait()
 	If ($request.response.status=200)
 		This:C1470.method:="GET"
-		If (This:C1470.decodeData)
+		If (Not:C34(This:C1470.decodeData))
 			This:C1470.headers["Accept-Encoding"]:="identity"
 		End if 
 		If (Value type:C1509($request.response.headers["accept-ranges"])=Is text:K8:3) && \
