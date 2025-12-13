@@ -59,5 +59,5 @@ Function main($port : Integer; $file : 4D:C1709.File; $URL : Text; $options : Ob
 Function terminate()
 	
 	var $llama : cs:C1710.workers.worker
-	$llama:=cs:C1710.workers.worker.new()
+	$llama:=cs:C1710.workers.worker.new(cs:C1710._server)
 	$llama.terminate()
