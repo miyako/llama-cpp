@@ -1,0 +1,13 @@
+{
+	"version": 2100,
+	"dependencies": {
+		"tcp": {
+			"github": "miyako/tcp",
+			"version": "latest"
+		},
+		"workers": {
+			"github": "miyako/workers",
+			"version": "latest"
+		}
+	}
+}
