@@ -88,7 +88,7 @@ Function start()
 Function terminate()
 	
 	var $llama : cs:C1710.workers.worker
-	$llama:=cs:C1710.workers.worker.new()
+	$llama:=cs:C1710.workers.worker.new(cs:C1710._server)
 	$llama.terminate()
 	
 Function onData($request : 4D:C1709.HTTPRequest; $event : Object)
