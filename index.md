@@ -20,35 +20,70 @@ Instantiate `cs.llama.llama` in your *On Startup* database method:
 ```4d
 var $llama : cs.llama.llama
 
-If (True)
+If (False)
     $llama:=cs.llama.llama.new()  //default
 Else 
-    var $modelsFolder : 4D.Folder
-    $modelsFolder:=Folder(fk home folder).folder(".llama-cpp")
-    var $lang; $URL : Text
+    var $homeFolder : 4D.Folder
+    $homeFolder:=Folder(fk home folder).folder(".llama-cpp")
     var $file : 4D.File
+    var $lang; $URL : Text
     $lang:=Get database localization(Current localization)
     Case of 
         : ($lang="ja")
-            $file:=$modelsFolder.file("Llama-3-ELYZA-JP-8B-q4_k_m.gguf")
+            $file:=$homeFolder.file("Llama-3-ELYZA-JP-8B-q4_k_m.gguf")
             $URL:="https://huggingface.co/elyza/Llama-3-ELYZA-JP-8B-GGUF/resolve/main/Llama-3-ELYZA-JP-8B-q4_k_m.gguf"
         Else 
-            $file:=$modelsFolder.file("nomic-embed-text-v1.5.f16.gguf")
+            $file:=$homeFolder.file("nomic-embed-text-v1.5.f16.gguf")
             $URL:="https://huggingface.co/nomic-ai/nomic-embed-text-v1.5-GGUF/resolve/main/nomic-embed-text-v1.5.f16.gguf"
     End case 
     var $port : Integer
     $port:=8080
+    
+    var $event : cs.llama.llamaEvent
+    $event:=cs.llama.llamaEvent.new()
+    /*
+        Function onError($params : Object; $error : cs._error)
+        Function onSuccess($params : Object)
+    */
+    $event.onError:=Formula(ALERT($2.message))
+    $event.onSuccess:=Formula(ALERT($1.model.name+" loaded!"))
+    
+    /*
+        embeddings
+    */
+    
     $llama:=cs.llama.llama.new($port; $file; $URL; {\
-        ctx_size: 2048; \
-        batch_size: 2048; \
-        threads: 4; \
-        threads_batch: 4; \
-        threads_http: 4; \
-        temp: 0.7; \
-        top_k: 40; \
-        top_p: 0.9; \
-        repeat_penalty: 1.1}; Formula(ALERT(This.file.name+($1.success ? " started!" : " did not start..."))))
-End if
+    ctx_size: 2048; \
+    batch_size: 2048; \
+    threads: 4; \
+    threads_batch: 4; \
+    threads_http: 4; \
+    temp: 0.7; \
+    top_k: 40; \
+    top_p: 0.9; \
+    log_disable: True; \
+    repeat_penalty: 1.1}; $event)
+    
+    /*
+        chat completion (with images)
+    */
+    
+    $file:=$homeFolder.file("Qwen2-VL-2B-Instruct-Q4_K_M")
+    $URL:="https://huggingface.co/bartowski/Qwen2-VL-2B-Instruct-GGUF/resolve/main/Qwen2-VL-2B-Instruct-Q4_K_M.gguf"
+    $port:=8081
+    $llama:=cs.llama.llama.new($port; $file; $URL; {\
+    ctx_size: 2048; \
+    batch_size: 2048; \
+    threads: 4; \
+    threads_batch: 4; \
+    threads_http: 4; \
+    temp: 0.7; \
+    top_k: 40; \
+    top_p: 0.9; \
+    log_disable: True; \
+    repeat_penalty: 1.1}; $event)
+    
+End if 
 ```
 
 Unless the server is already running (in which case the costructor does nothing), the following procedure runs in the background:
@@ -86,6 +121,19 @@ $llama:=cs.llama.llama.new()
 $llama.terminate()
 ```
 
+#### Vision
+
+`llama-server` supports OCR if you use a model converted to .gguf. `Q4_K_M` is generally considered a best level of quantisation for OCR.
+
+|Model|Parameters|Size|
+|-|-:|-:|
+|[Llama-3.2-11B-Vision-Instruct.Q4_K_M.gguf](https://huggingface.co/leafspark/Llama-3.2-11B-Vision-Instruct-GGUF/resolve/main/Llama-3.2-11B-Vision-Instruct.Q4_K_M.gguf)|`11`B|`5.96`GB|
+|[MiniCPM-V-2_6-Q4_K_M.gguf](https://huggingface.co/second-state/MiniCPM-V-2_6-GGUF/resolve/main/MiniCPM-V-2_6-Q4_K_M.gguf)|`8`B|`4.68`GB|
+|[Qwen2-VL-7B-Instruct-Q4_K_M.gguf](https://huggingface.co/bartowski/Qwen2-VL-7B-Instruct-GGUF/resolve/main/Qwen2-VL-7B-Instruct-Q4_K_M.gguf)|`7`B|`4.68`GB|
+|[Qwen2-VL-2B-Instruct-Q4_K_M.gguf](https://huggingface.co/bartowski/Qwen2-VL-2B-Instruct-GGUF/resolve/main/Qwen2-VL-2B-Instruct-Q4_K_M.gguf)|`2`B|`986`MB|
+
+`llama-server` does not support the `/v1/files` API so you need to reference the image via a data URI in your chat completion request.
+
 #### AI Kit compatibility
 
 The API is compatibile with [Open AI](https://platform.openai.com/docs/api-reference/embeddings). 
@@ -98,82 +146,3 @@ The API is compatibile with [Open AI](https://platform.openai.com/docs/api-refer
 |Moderations|`/v1/moderations`||
 |Embeddings|`/v1/embeddings`|✅|
 |Files|`/v1/files`||
-
-#### Vision
-
-llama.cpp supports OCR if you use a model converted to .gguf. `Q4_K_M` is generally considered a best level of quantisation for OCR.
-
-|Model|Parameters|Size|
-|-|-:|-:|
-|[Llama-3.2-11B-Vision-Instruct.Q4_K_M.gguf](https://huggingface.co/leafspark/Llama-3.2-11B-Vision-Instruct-GGUF/resolve/main/Llama-3.2-11B-Vision-Instruct.Q4_K_M.gguf)|`11`B|`5.96`GB|
-|[MiniCPM-V-2_6-Q4_K_M.gguf](https://huggingface.co/second-state/MiniCPM-V-2_6-GGUF/resolve/main/MiniCPM-V-2_6-Q4_K_M.gguf)|`8`B|`4.68`GB|
-|[Qwen2-VL-7B-Instruct-Q4_K_M.gguf](https://huggingface.co/bartowski/Qwen2-VL-7B-Instruct-GGUF/resolve/main/Qwen2-VL-7B-Instruct-Q4_K_M.gguf)|`7`B|`4.68`GB|
-|[Qwen2-VL-2B-Instruct-Q4_K_M.gguf](https://huggingface.co/bartowski/Qwen2-VL-2B-Instruct-GGUF/resolve/main/Qwen2-VL-2B-Instruct-Q4_K_M.gguf)|`2`B|`986`MB|
-
-#### Embeddings
-
-Decoder-only LLMs are trained to predict the next word, not to create searchable vector representation of sentences. To create searchable vector representations of images descriptions, you need to launch a 2nd instance to run an embeddings model.
-
-You can start multiple instances by calling `.start` with a different port number:
-
-```4d
-var $llama : cs.llama
-
-If (False)
-    $llama:=cs.llama.new()  //default
-Else 
-    var $modelsFolder : 4D.Folder
-    $modelsFolder:=Folder(fk home folder).folder(".llama-cpp")
-    var $lang; $URL : Text
-    var $file : 4D.File
-    $lang:=Get database localization(Current localization)
-    Case of 
-        : ($lang="ja")
-            $file:=$modelsFolder.file("Llama-3-ELYZA-JP-8B-q4_k_m.gguf")
-            $URL:="https://huggingface.co/elyza/Llama-3-ELYZA-JP-8B-GGUF/resolve/main/Llama-3-ELYZA-JP-8B-q4_k_m.gguf"
-        Else 
-            $file:=$modelsFolder.file("nomic-embed-text-v1.5.f16.gguf")
-            $URL:="https://huggingface.co/nomic-ai/nomic-embed-text-v1.5-GGUF/resolve/main/nomic-embed-text-v1.5.f16.gguf"
-    End case 
-    var $port : Integer
-    $port:=8080
-    
-    /*
-        embeddings
-    */
-    
-    $llama:=cs.llama.new($port; $file; $URL; {\
-    ctx_size: 2048; \
-    batch_size: 2048; \
-    threads: 4; \
-    threads_batch: 4; \
-    threads_http: 4; \
-    temp: 0.7; \
-    top_k: 40; \
-    top_p: 0.9; \
-    repeat_penalty: 1.1}; Formula(ALERT(This.file.name+($1.success ? " started!" : " did not start..."))))
-    
-    /*
-        chat/completion (with images)
-    */
-    
-    $file:=$modelsFolder.file("Qwen2-VL-2B-Instruct-Q4_K_M")
-    $URL:="https://huggingface.co/bartowski/Qwen2-VL-2B-Instruct-GGUF/resolve/main/Qwen2-VL-2B-Instruct-Q4_K_M.gguf"
-    $port:=8081
-    $llama:=cs.llama.new($port; $file; $URL; {\
-    ctx_size: 2048; \
-    batch_size: 2048; \
-    threads: 4; \
-    threads_batch: 4; \
-    threads_http: 4; \
-    temp: 0.7; \
-    top_k: 40; \
-    top_p: 0.9; \
-    repeat_penalty: 1.1}; Formula(ALERT(This.file.name+($1.success ? " started!" : " did not start..."))))
-    
-End if 
-```
-
-`.terminate()` will terminate all instances.
-
-llama.cpp does not support the `/v1/files` API so you need to reference the image via a data URI in your chat completion request.
