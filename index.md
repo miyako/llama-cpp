@@ -46,7 +46,7 @@ Else
         Function onSuccess($params : Object)
     */
     $event.onError:=Formula(ALERT($2.message))
-    $event.onSuccess:=Formula(ALERT($1.model.name+" loaded!"))
+    $event.onSuccess:=Formula(ALERT(This.file.name+" loaded!"))
     
     /*
         embeddings

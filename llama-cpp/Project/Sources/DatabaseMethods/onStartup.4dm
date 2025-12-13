@@ -26,7 +26,7 @@ Function onError($params : Object; $error : cs._error)
 Function onSuccess($params : Object)
 */
 	$event.onError:=Formula:C1597(ALERT:C41($2.message))
-	$event.onSuccess:=Formula:C1597(ALERT:C41($1.model.name+" loaded!"))
+	$event.onSuccess:=Formula:C1597(ALERT:C41(This:C1470.file.name+" loaded!"))
 	
 /*
 embeddings
