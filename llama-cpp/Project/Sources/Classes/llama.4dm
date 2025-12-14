@@ -6,18 +6,10 @@ Class constructor($port : Integer; $file : 4D:C1709.File; $URL : Text; $options 
 	If (Not:C34($llama.isRunning($port)))
 		
 		If (Value type:C1509($file)#Is object:K8:27) || (Not:C34(OB Instance of:C1731($file; 4D:C1709.File))) || ($URL="")
-			var $modelsFolder : 4D:C1709.Folder
-			$modelsFolder:=Folder:C1567(fk home folder:K87:24).folder(".llama-cpp")
-			var $lang : Text
-			$lang:=Get database localization:C1009(Current localization:K5:22)
-			Case of 
-				: ($lang="ja")
-					$file:=$modelsFolder.file("Llama-3-ELYZA-JP-8B-q4_k_m.gguf")
-					$URL:="https://huggingface.co/elyza/Llama-3-ELYZA-JP-8B-GGUF/resolve/main/Llama-3-ELYZA-JP-8B-q4_k_m.gguf"
-				Else 
-					$file:=$modelsFolder.file("nomic-embed-text-v1.5.f16.gguf")
-					$URL:="https://huggingface.co/nomic-ai/nomic-embed-text-v1.5-GGUF/resolve/main/nomic-embed-text-v1.5.f16.gguf"
-			End case 
+			var $homeFolder : 4D:C1709.Folder
+			$homeFolder:=Folder:C1567(fk home folder:K87:24).folder(".llama-cpp")
+			$file:=$homeFolder.file("nomic-embed-text-v1.5.f16.gguf")
+			$URL:="https://huggingface.co/nomic-ai/nomic-embed-text-v1.5-GGUF/resolve/main/nomic-embed-text-v1.5.f16.gguf"
 		End if 
 		
 		If ($port=0) || ($port<0) || ($port>65535)

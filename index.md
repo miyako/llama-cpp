@@ -26,18 +26,8 @@ Else
     var $homeFolder : 4D.Folder
     $homeFolder:=Folder(fk home folder).folder(".llama-cpp")
     var $file : 4D.File
-    var $lang; $URL : Text
-    $lang:=Get database localization(Current localization)
-    Case of 
-        : ($lang="ja")
-            $file:=$homeFolder.file("Llama-3-ELYZA-JP-8B-q4_k_m.gguf")
-            $URL:="https://huggingface.co/elyza/Llama-3-ELYZA-JP-8B-GGUF/resolve/main/Llama-3-ELYZA-JP-8B-q4_k_m.gguf"
-        Else 
-            $file:=$homeFolder.file("nomic-embed-text-v1.5.f16.gguf")
-            $URL:="https://huggingface.co/nomic-ai/nomic-embed-text-v1.5-GGUF/resolve/main/nomic-embed-text-v1.5.f16.gguf"
-    End case 
+    var $URL : Text 
     var $port : Integer
-    $port:=8080
     
     var $event : cs.llama.llamaEvent
     $event:=cs.llama.llamaEvent.new()
@@ -52,6 +42,9 @@ Else
         embeddings
     */
     
+    $file:=$homeFolder.file("nomic-embed-text-v1.5.f16.gguf")
+    $URL:="https://huggingface.co/nomic-ai/nomic-embed-text-v1.5-GGUF/resolve/main/nomic-embed-text-v1.5.f16.gguf"
+    $port:=8080
     $llama:=cs.llama.llama.new($port; $file; $URL; {\
     ctx_size: 2048; \
     batch_size: 2048; \
@@ -83,7 +76,7 @@ Else
     log_disable: True; \
     repeat_penalty: 1.1}; $event)
     
-End if 
+End if  
 ```
 
 Unless the server is already running (in which case the costructor does nothing), the following procedure runs in the background:
