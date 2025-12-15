@@ -26,7 +26,7 @@ Else
     var $homeFolder : 4D.Folder
     $homeFolder:=Folder(fk home folder).folder(".llama-cpp")
     var $file : 4D.File
-    var $URL : Text 
+    var $URL : Text
     var $port : Integer
     
     var $event : cs.llama.llamaEvent
@@ -42,8 +42,8 @@ Else
         embeddings
     */
     
-    $file:=$homeFolder.file("nomic-embed-text-v1.5.f16.gguf")
-    $URL:="https://huggingface.co/nomic-ai/nomic-embed-text-v1.5-GGUF/resolve/main/nomic-embed-text-v1.5.f16.gguf"
+    $file:=$homeFolder.file("nomic-embed-text-v1.Q8_0.gguf")
+    $URL:="https://huggingface.co/nomic-ai/nomic-embed-text-v1-GGUF/resolve/main/nomic-embed-text-v1.Q8_0.gguf"
     $port:=8080
     $llama:=cs.llama.llama.new($port; $file; $URL; {\
     ctx_size: 2048; \
@@ -55,7 +55,8 @@ Else
     top_k: 40; \
     top_p: 0.9; \
     log_disable: True; \
-    repeat_penalty: 1.1}; $event)
+    repeat_penalty: 1.1; \
+    n_gpu_layers: -1}; $event)
     
     /*
         chat completion (with images)
@@ -74,9 +75,10 @@ Else
     top_k: 40; \
     top_p: 0.9; \
     log_disable: True; \
-    repeat_penalty: 1.1}; $event)
+    repeat_penalty: 1.1; \
+    n_gpu_layers: -1}; $event)
     
-End if  
+End if   
 ```
 
 Unless the server is already running (in which case the costructor does nothing), the following procedure runs in the background:

@@ -22,8 +22,8 @@ Function onSuccess($params : Object)
 embeddings
 */
 	
-	$file:=$homeFolder.file("nomic-embed-text-v1.5.f16.gguf")
-	$URL:="https://huggingface.co/nomic-ai/nomic-embed-text-v1.5-GGUF/resolve/main/nomic-embed-text-v1.5.f16.gguf"
+	$file:=$homeFolder.file("nomic-embed-text-v1.Q8_0.gguf")
+	$URL:="https://huggingface.co/nomic-ai/nomic-embed-text-v1-GGUF/resolve/main/nomic-embed-text-v1.Q8_0.gguf"
 	$port:=8080
 	$llama:=cs:C1710.llama.new($port; $file; $URL; {\
 		ctx_size: 2048; \
@@ -35,7 +35,8 @@ embeddings
 		top_k: 40; \
 		top_p: 0.9; \
 		log_disable: True:C214; \
-		repeat_penalty: 1.1}; $event)
+		repeat_penalty: 1.1; \
+		n_gpu_layers: -1}; $event)
 	
 /*
 chat completion (with images)
@@ -54,6 +55,7 @@ chat completion (with images)
 		top_k: 40; \
 		top_p: 0.9; \
 		log_disable: True:C214; \
-		repeat_penalty: 1.1}; $event)
+		repeat_penalty: 1.1; \
+		n_gpu_layers: -1}; $event)
 	
 End if 
