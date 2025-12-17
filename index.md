@@ -29,14 +29,16 @@ Else
     var $URL : Text
     var $port : Integer
     
-    var $event : cs.llama.llamaEvent
-    $event:=cs.llama.llamaEvent.new()
+    var $event : cs.event.event
+    $event:=cs.event.event.new()
     /*
-        Function onError($params : Object; $error : cs._error)
-        Function onSuccess($params : Object)
+        Function onError($params : Object; $error : cs.event.error)
+        Function onSuccess($params : Object; $models : cs.event.models)
     */
     $event.onError:=Formula(ALERT($2.message))
-    $event.onSuccess:=Formula(ALERT(This.file.name+" loaded!"))
+    $event.onSuccess:=Formula(ALERT($2.models.extract("name").join(",")+" loaded!"))
+    $event.onData:=Formula(MESSAGE(String((This.range.end/This.range.length)*100; "###.00%")))  //onData@4D.HTTPRequest
+    $event.onResponse:=Formula(ERASE WINDOW)  //onResponse@4D.HTTPRequest
     
     /*
         embeddings
