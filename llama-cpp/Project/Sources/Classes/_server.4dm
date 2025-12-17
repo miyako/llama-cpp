@@ -21,8 +21,7 @@ Function start($option : Object) : 4D:C1709.SystemWorker
 	
 	For each ($arg; OB Entries:C1720($option))
 		Case of 
-			: (["model"; "model_url"; \
-				"docker_repo"].includes($arg.key))
+			: (["model"; "model_url"; "version"; "help"].includes($arg.key))
 				continue
 		End case 
 		$valueType:=Value type:C1509($arg.value)

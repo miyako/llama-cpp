@@ -8,6 +8,10 @@
 		"workers": {
 			"github": "miyako/workers",
 			"version": "latest"
+		},
+		"event": {
+			"github": "miyako/event",
+			"version": "latest"
 		}
 	}
 }

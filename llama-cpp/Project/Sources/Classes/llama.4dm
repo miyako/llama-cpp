@@ -1,4 +1,4 @@
-Class constructor($port : Integer; $file : 4D:C1709.File; $URL : Text; $options : Object; $event : cs:C1710._event)
+Class constructor($port : Integer; $file : 4D:C1709.File; $URL : Text; $options : Object; $event : cs:C1710.event.event)
 	
 	var $llama : cs:C1710.workers.worker
 	$llama:=cs:C1710.workers.worker.new(cs:C1710._server)
@@ -9,26 +9,12 @@ Class constructor($port : Integer; $file : 4D:C1709.File; $URL : Text; $options 
 			var $homeFolder : 4D:C1709.Folder
 			$homeFolder:=Folder:C1567(fk home folder:K87:24).folder(".llama-cpp")
 			
-			
 /*
 embeddings
 */
 			
 			$file:=$homeFolder.file("nomic-embed-text-v1.Q8_0.gguf")
 			$URL:="https://huggingface.co/nomic-ai/nomic-embed-text-v1-GGUF/resolve/main/nomic-embed-text-v1.Q8_0.gguf"
-			$port:=8080
-			$llama:=cs:C1710.llama.new($port; $file; $URL; {\
-				ctx_size: 2048; \
-				batch_size: 2048; \
-				threads: 4; \
-				threads_batch: 4; \
-				threads_http: 4; \
-				temp: 0.7; \
-				top_k: 40; \
-				top_p: 0.9; \
-				log_disable: True:C214; \
-				repeat_penalty: 1.1; \
-				n_gpu_layers: -1}; $event)
 			
 /*
 chat completion (with images)
@@ -36,19 +22,6 @@ chat completion (with images)
 			
 			$file:=$homeFolder.file("Qwen2-VL-2B-Instruct-Q4_K_M")
 			$URL:="https://huggingface.co/bartowski/Qwen2-VL-2B-Instruct-GGUF/resolve/main/Qwen2-VL-2B-Instruct-Q4_K_M.gguf"
-			$port:=8081
-			$llama:=cs:C1710.llama.new($port; $file; $URL; {\
-				ctx_size: 2048; \
-				batch_size: 2048; \
-				threads: 4; \
-				threads_batch: 4; \
-				threads_http: 4; \
-				temp: 0.7; \
-				top_k: 40; \
-				top_p: 0.9; \
-				log_disable: True:C214; \
-				repeat_penalty: 1.1; \
-				n_gpu_layers: -1}; $event)
 			
 		End if 
 		
@@ -73,10 +46,10 @@ Function onTCP($status : Object; $options : Object)
 		
 		var $statuses : Text
 		$statuses:="TCP port "+String:C10($status.port)+" is aready used by process "+$status.PID.join(",")
-		var $error : cs:C1710._error
-		$error:=cs:C1710._error.new(1; $statuses)
+		var $error : cs:C1710.event.error
+		$error:=cs:C1710.event.error.new(1; $statuses)
 		
-		If ($options.event#Null:C1517) && (OB Instance of:C1731($options.event; cs:C1710._event))
+		If ($options.event#Null:C1517) && (OB Instance of:C1731($options.event; cs:C1710.event.event))
 			$options.event.onError.call(This:C1470; $options; $error)
 		End if 
 		
@@ -84,7 +57,7 @@ Function onTCP($status : Object; $options : Object)
 		
 	End if 
 	
-Function main($port : Integer; $file : 4D:C1709.File; $URL : Text; $options : Object; $event : cs:C1710._event)
+Function main($port : Integer; $file : 4D:C1709.File; $URL : Text; $options : Object; $event : cs:C1710.event.event)
 	
 	main({port: $port; file: $file; URL: $URL; options: $options; event: $event}; This:C1470.onTCP)
 	

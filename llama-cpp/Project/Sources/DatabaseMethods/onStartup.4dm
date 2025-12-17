@@ -9,14 +9,16 @@ Else
 	var $URL : Text
 	var $port : Integer
 	
-	var $event : cs:C1710.llamaEvent
-	$event:=cs:C1710.llamaEvent.new()
+	var $event : cs:C1710.event.event
+	$event:=cs:C1710.event.event.new()
 /*
-Function onError($params : Object; $error : cs._error)
-Function onSuccess($params : Object)
+Function onError($params : Object; $error : cs.event.error)
+Function onSuccess($params : Object; $models : cs.event.models)
 */
 	$event.onError:=Formula:C1597(ALERT:C41($2.message))
-	$event.onSuccess:=Formula:C1597(ALERT:C41(This:C1470.file.name+" loaded!"))
+	$event.onSuccess:=Formula:C1597(ALERT:C41($2.models.extract("name").join(",")+" loaded!"))
+	$event.onData:=Formula:C1597(MESSAGE:C88(String:C10((This:C1470.range.end/This:C1470.range.length)*100; "###.00%")))  //onData@4D.HTTPRequest
+	$event.onResponse:=Formula:C1597(ERASE WINDOW:C160)  //onResponse@4D.HTTPRequest
 	
 /*
 embeddings
