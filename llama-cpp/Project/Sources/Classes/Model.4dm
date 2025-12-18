@@ -146,7 +146,7 @@ Function onResponse($request : 4D:C1709.HTTPRequest; $event : Object)
 Function onError($request : 4D:C1709.HTTPRequest; $event : Object)
 	
 	If (Value type:C1509(This:C1470._onResponse)=Is object:K8:27) && (OB Instance of:C1731(This:C1470._onResponse; 4D:C1709.Function))
-		This:C1470._onResponse.call(This:C1470; {success: False:C215})
+		This:C1470._onResponse.call(This:C1470; {success: False:C215}; This:C1470.options)
 		This:C1470._fileHandle:=Null:C1517
 		This:C1470.file.delete()
 	End if 
