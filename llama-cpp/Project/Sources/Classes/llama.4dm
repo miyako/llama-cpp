@@ -53,8 +53,6 @@ Function onTCP($status : Object; $options : Object)
 			$options.event.onError.call(This:C1470; $options; $error)
 		End if 
 		
-		This:C1470.terminate()
-		
 	End if 
 	
 Function main($port : Integer; $file : 4D:C1709.File; $URL : Text; $options : Object; $event : cs:C1710.event.event)
