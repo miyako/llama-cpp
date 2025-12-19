@@ -17,16 +17,12 @@ Function onSuccess($params : Object; $models : cs.event.models)
 Function onData($request : 4D.HTTPRequest; $event : Object)
 Function onResponse($request : 4D.HTTPRequest; $event : Object)
 Function onTerminate($worker : 4D.SystemWorker; $params : Object)
-Function onStdOut($worker : 4D.SystemWorker; $params : Object)
-Function onStdErr($worker : 4D.SystemWorker; $params : Object)
 */
 	
 	$event.onError:=Formula:C1597(ALERT:C41($2.message))
 	$event.onSuccess:=Formula:C1597(ALERT:C41($2.models.extract("name").join(",")+" loaded!"))
 	$event.onData:=Formula:C1597(LOG EVENT:C667(Into 4D debug message:K38:5; "download:"+String:C10((This:C1470.range.end/This:C1470.range.length)*100; "###.00%")))
 	$event.onResponse:=Formula:C1597(LOG EVENT:C667(Into 4D debug message:K38:5; "download complete"))
-	$event.onStdOut:=Formula:C1597(LOG EVENT:C667(Into 4D debug message:K38:5; "out:"+$2.data))
-	$event.onStdErr:=Formula:C1597(LOG EVENT:C667(Into 4D debug message:K38:5; "err:"+$2.data))
 	$event.onTerminate:=Formula:C1597(LOG EVENT:C667(Into 4D debug message:K38:5; (["process"; $1.pid; "terminated!"].join(" "))))
 	
 /*

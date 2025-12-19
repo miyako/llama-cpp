@@ -37,16 +37,12 @@ Else
         Function onData($request : 4D.HTTPRequest; $event : Object)
         Function onResponse($request : 4D.HTTPRequest; $event : Object)
         Function onTerminate($worker : 4D.SystemWorker; $params : Object)
-        Function onStdOut($worker : 4D.SystemWorker; $params : Object)
-        Function onStdErr($worker : 4D.SystemWorker; $params : Object)
     */
     
     $event.onError:=Formula(ALERT($2.message))
     $event.onSuccess:=Formula(ALERT($2.models.extract("name").join(",")+" loaded!"))
     $event.onData:=Formula(LOG EVENT(Into 4D debug message; "download:"+String((This.range.end/This.range.length)*100; "###.00%")))
     $event.onResponse:=Formula(LOG EVENT(Into 4D debug message; "download complete"))
-    $event.onStdOut:=Formula(LOG EVENT(Into 4D debug message; "out:"+$2.data))
-    $event.onStdErr:=Formula(LOG EVENT(Into 4D debug message; "err:"+$2.data))
     $event.onTerminate:=Formula(LOG EVENT(Into 4D debug message; (["process"; $1.pid; "terminated!"].join(" "))))
     
     /*
