@@ -30,7 +30,7 @@ Class constructor($command : Text; $controller : 4D:C1709.Class)
 	
 	Super:C1705($program; $controller)
 	
-Function bind($option : Object; $properties : Collection) : cs:C1710._llama
+Function bind($option : Object; $properties : Collection) : cs:C1710._CLI
 	
 	var $property : Text
 	For each ($property; $properties)

@@ -6,7 +6,7 @@ Class constructor($controller : 4D:C1709.Class)
 	
 Function start($option : Object) : 4D:C1709.SystemWorker
 	
-	This:C1470.bind($option; ["port"; "onStdOut"; "onStdErr"; "onTerminate"])
+	This:C1470.bind($option; ["onTerminate"])
 	
 	var $command : Text
 	$command:=This:C1470.escape(This:C1470.executablePath)
