@@ -10,7 +10,7 @@ Class constructor($command : Text; $class : 4D:C1709.Class)
 	var $controller : 4D:C1709.Class
 	var $superclass : 4D:C1709.Class
 	$superclass:=$class.superclass
-	$controller:=cs:C1710._ollama_Controller
+	$controller:=cs:C1710._llama_Controller
 	
 	While ($superclass#Null:C1517)
 		If ($superclass=$controller)

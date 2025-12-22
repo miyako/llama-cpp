@@ -16,24 +16,17 @@ embeddings
 			$file:=$homeFolder.file("nomic-embed-text-v1.Q8_0.gguf")
 			$URL:="https://huggingface.co/nomic-ai/nomic-embed-text-v1-GGUF/resolve/main/nomic-embed-text-v1.Q8_0.gguf"
 			
-/*
-chat completion (with images)
-*/
-			
-			$file:=$homeFolder.file("Qwen2-VL-2B-Instruct-Q4_K_M")
-			$URL:="https://huggingface.co/bartowski/Qwen2-VL-2B-Instruct-GGUF/resolve/main/Qwen2-VL-2B-Instruct-Q4_K_M.gguf"
-			
 		End if 
 		
 		If ($port=0) || ($port<0) || ($port>65535)
 			$port:=8080
 		End if 
 		
-		This:C1470.main($port; $file; $URL; $options; $event)
+		This:C1470._main($port; $file; $URL; $options; $event)
 		
 	End if 
 	
-Function onTCP($status : Object; $options : Object)
+Function _onTCP($status : Object; $options : Object)
 	
 	If ($status.success)
 		
@@ -55,9 +48,9 @@ Function onTCP($status : Object; $options : Object)
 		
 	End if 
 	
-Function main($port : Integer; $file : 4D:C1709.File; $URL : Text; $options : Object; $event : cs:C1710.event.event)
+Function _main($port : Integer; $file : 4D:C1709.File; $URL : Text; $options : Object; $event : cs:C1710.event.event)
 	
-	main({port: $port; file: $file; URL: $URL; options: $options; event: $event}; This:C1470.onTCP)
+	main({port: $port; file: $file; URL: $URL; options: $options; event: $event}; This:C1470._onTCP)
 	
 Function terminate()
 	
