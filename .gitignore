@@ -1,3 +1,4 @@
 llama-cpp/userPreferences.*
 llama-cpp/Project/DerivedData/*
 llama-cpp/Data/*
+llama-cpp/Libraries/lib4d-arm64.dylib
