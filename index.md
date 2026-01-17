@@ -51,7 +51,7 @@ Else
         embeddings
     */
     
-    $port:=8082
+    $port:=8083
     
     $folder:=$homeFolder.folder("nomic-embed-text-v1.Q8_0")  //where to keep the repo
     $path:="nomic-embed-text-v1.Q8_0.gguf"  //path to the file
@@ -75,7 +75,7 @@ Else
         chat completion
     */
     
-    $port:=8083
+    $port:=8082
     
     $folder:=$homeFolder.folder("gemma-2-2b-it-Q4_K_M")  //where to keep the repo
     $path:="gemma-2-2b-it-Q4_K_M.gguf"  //path to the file
@@ -107,7 +107,7 @@ Unless the server is already running (in which case the costructor does nothing)
 Now you can test the server:
 
 ```
-curl -X POST http://127.0.0.1:8082/v1/embeddings \
+curl -X POST http://127.0.0.1:8083/v1/embeddings \
      -H "Content-Type: application/json" \
      -d '{"input":"The quick brown fox jumps over the lazy dog."}'
 ```
