@@ -28,7 +28,8 @@ Else
     var $file : 4D.File
     var $URL : Text
     var $port : Integer
-    
+    var $huggingface : cs.event.huggingface
+        
     var $event : cs.event.event
     $event:=cs.event.event.new()
     /*
@@ -53,22 +54,22 @@ Else
     
     $port:=8083
     
-    $folder:=$homeFolder.folder("nomic-embed-text-v1.Q8_0")  //where to keep the repo
-    $path:="nomic-embed-text-v1.Q8_0.gguf"  //path to the file
-    $URL:="nomic-ai/nomic-embed-text-v1-GGUF"  //path to the repo
+    $folder:=$homeFolder.folder("jina-embeddings-v4-text-matching-Q4_K_M")  //where to keep the repo
+    $path:="jina-embeddings-v4-text-matching-Q4_K_M.gguf"  //path to the file
+    $URL:="jinaai/jina-embeddings-v4-text-matching-GGUF"  //path to the repo
     
-    var $embeddings : cs.event.huggingface
-    $embeddings:=cs.event.huggingface.new($folder; $URL; $path; "embedding")
-    $huggingfaces:=cs.event.huggingfaces.new([$embeddings])
+    $huggingface:=cs.event.huggingface.new($folder; $URL; $path)
+    $huggingfaces:=cs.event.huggingfaces.new([$huggingface])
     
     $options:={\
-    embeddings: True; \
-    threads: 4; \
-    threads_batch: 4; \
-    threads_http: 4; \
-    log_disable: True; \
-    n_gpu_layers: -1}
-    
+        embeddings: True; \
+        pooling: "mean"; \
+        threads: 4; \
+        threads_batch: 4; \
+        threads_http: 4; \
+        log_disable: True; \
+        n_gpu_layers: -1}
+
     $llama:=cs.llama.llama.new($port; $huggingfaces; $homeFolder; $options; $event)
     
     /*
@@ -77,22 +78,29 @@ Else
     
     $port:=8082
     
-    $folder:=$homeFolder.folder("gemma-2-2b-it-Q4_K_M")  //where to keep the repo
-    $path:="gemma-2-2b-it-Q4_K_M.gguf"  //path to the file
-    $URL:="bartowski/gemma-2-2b-it-GGUF"  //path to the repo
+    $folder:=$homeFolder.folder("Llama-3.2-3B-Instruct-Q4_K_M")  //where to keep the repo
+    $path:="Llama-3.2-3B-Instruct-Q4_K_M.gguf"  //path to the file
+    $URL:="hugging-quants/Llama-3.2-3B-Instruct-Q4_K_M-GGUF"  //path to the repo
+    
+    $huggingface:=cs.event.huggingface.new($folder; $URL; $path)
+    $huggingfaces:=cs.event.huggingfaces.new([$huggingface])
     
     $options:={\
-    ctx_size: 2048; \
-    batch_size: 2048; \
-    threads: 4; \
-    threads_batch: 4; \
-    threads_http: 4; \
-    temp: 0.3; \
-    top_k: 40; \
-    top_p: 0.9; \
-    log_disable: True; \
-    repeat_penalty: 1; \
-    n_gpu_layers: -1}
+        ctx_size: 32768; \
+        batch_size: 4096; \
+        threads: 4; \
+        threads_batch: 4; \
+        threads_http: 4; \
+        temp: 0.3; \
+        top_k: 40; \
+        top_p: 0.9; \
+        log_disable: True; \
+        repeat_penalty: 1; \
+        n_gpu_layers: -1; \
+        jinja: True; \
+        flash_attn: "on"; \
+        cache_type_v: "q8_0"; \
+        cache_type_k: "q8_0"}
     
     $llama:=cs.llama.llama.new($port; $huggingfaces; $homeFolder; $options; $event)
     
