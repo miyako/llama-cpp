@@ -12,9 +12,12 @@ Function start($option : Object) : 4D:C1709.SystemWorker
 	$command:=This:C1470.escape(This:C1470.executablePath)
 	
 	Case of 
-		: (Value type:C1509($option.model)=Is object:K8:27) && (OB Instance of:C1731($option.model; 4D:C1709.File)) && ($option.model.exists)
+		: (Value type:C1509($option.model)=Is object:K8:27)\
+			 && (OB Instance of:C1731($option.model; 4D:C1709.File))\
+			 && ($option.model.exists)
 			$command+=" --model "
 			$command+=This:C1470.escape(This:C1470.expand($option.model).path)
+			$command+=" "
 	End case 
 	
 	var $arg : Object
@@ -36,7 +39,7 @@ Function start($option : Object) : 4D:C1709.SystemWorker
 			: ($valueType=Is boolean:K8:9) && ($arg.value)
 				$command+=(" --"+$key+" ")
 			: ($valueType=Is object:K8:27) && (OB Instance of:C1731($arg.value; 4D:C1709.File))
-				$command+=(" --"+$key+" "+This:C1470.escape(This:C1470.expand($option.model).path))
+				$command+=(" --"+$key+" "+This:C1470.escape(This:C1470.expand($arg.value).path))
 			Else 
 				//
 		End case 
