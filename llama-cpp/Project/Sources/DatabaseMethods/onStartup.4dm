@@ -58,16 +58,16 @@ Else
 	
 	$port:=8084
 	
-	$folder:=$homeFolder.folder("qwen2.5-1.5b-instruct-q4_k_m")  //where to keep the repo
-	$path:="qwen2.5-1.5b-instruct-q4_k_m.gguf"  //path to the file
-	$URL:="Qwen/Qwen2.5-1.5B-Instruct-GGUF"  //path to the repo
+	$folder:=$homeFolder.folder("Phi-3.5-mini-instruct-Q4_0")  //where to keep the repo
+	$path:="Phi-3.5-mini-instruct-Q4_0.gguf"  //path to the file
+	$URL:="bartowski/Phi-3.5-mini-instruct-GGUF"  //path to the repo
 	
 	$huggingface:=cs:C1710.event.huggingface.new($folder; $URL; $path)
 	$huggingfaces:=cs:C1710.event.huggingfaces.new([$huggingface])
 	
 	$options:={\
-		ctx_size: 128000; \
-		batch_size: 8192; \
+		ctx_size: 4096; \
+		batch_size: 2048; \
 		threads: 4; \
 		n_predict: -1; \
 		threads_batch: 4; \
@@ -78,11 +78,8 @@ Else
 		log_disable: True:C214; \
 		repeat_penalty: 1; \
 		n_gpu_layers: -1; \
-		jinja: True:C214; \
-		flash_attn: "on"; \
-		cache_type_v: "q8_0"; \
-		cache_type_k: "q8_0"}
+		jinja: True:C214}
 	
-	//$llama:=cs.llama.new($port; $huggingfaces; $homeFolder; $options; $event)
+	$llama:=cs:C1710.llama.new($port; $huggingfaces; $homeFolder; $options; $event)
 	
 End if 
