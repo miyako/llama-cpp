@@ -56,11 +56,11 @@ Else
         chat completion
     */
 	
-	$port:=8084
+	$port:=8082
 	
-	$folder:=$homeFolder.folder("Phi-3.5-mini-instruct-Q4_0")  //where to keep the repo
-	$path:="Phi-3.5-mini-instruct-Q4_0.gguf"  //path to the file
-	$URL:="bartowski/Phi-3.5-mini-instruct-GGUF"  //path to the repo
+	$folder:=$homeFolder.folder("Qwen3-4B-Instruct-2507")  //where to keep the repo
+	$path:="Qwen3-4B-Instruct-2507-Q4_K_M.gguf"  //path to the file
+	$URL:="keisuke-miyako/Qwen3-4B-Instruct-2507-gguf-q4k_m"  //path to the repo
 	
 	$huggingface:=cs:C1710.event.huggingface.new($folder; $URL; $path)
 	$huggingfaces:=cs:C1710.event.huggingfaces.new([$huggingface])
