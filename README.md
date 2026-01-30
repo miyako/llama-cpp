@@ -23,14 +23,15 @@ Local inference engine
 ~~c.f. https://github.com/ggml-org/llama.cpp/issues/9937~~
 
 ```
-cmake -S . -B build -A x64 \
- -DLLAMA_STATIC=ON \
- -DBUILD_SHARED_LIBS=FALSE \
- -DLLAMA_DIRECTML=ON \
- -DCMAKE_TOOLCHAIN_FILE={...\vcpkg\scripts\buildsystems\vcpkg.cmake} \
- -DCURL_INCLUDE_DIR={\vcpkg\installed\x64-windows-static\include} \
- -DCURL_LIBRARY={\vcpkg\installed\x64-windows-static\lib\libcurl.lib} \
- -DLLAMA_BUILD_SERVER=ON \
+cmake -S . -B build -A x64 ^
+ -DLLAMA_STATIC=ON ^
+ -DBUILD_SHARED_LIBS=FALSE ^
+ -DLLAMA_DIRECTML=ON ^
+ -DCMAKE_TOOLCHAIN_FILE={...\vcpkg\scripts\buildsystems\vcpkg.cmake} ^
+ -DCURL_INCLUDE_DIR={\vcpkg\installed\x64-windows-static\include} ^
+ -DCURL_LIBRARY={\vcpkg\installed\x64-windows-static\lib\libcurl.lib} ^
+ -DLLAMA_BUILD_SERVER=ON ^
+
 cmake --build build --config Release
 ```
 
