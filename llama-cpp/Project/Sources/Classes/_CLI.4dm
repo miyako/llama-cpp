@@ -13,7 +13,11 @@ Class constructor($executableName : Text; $controller : 4D:C1709.Class)
 			This:C1470._executableName:=$executableName
 			This:C1470._EOL:="\n"
 		: (Is Windows:C1573)
-			This:C1470._platform:="Windows"
+			If (This:C1470._isArm())
+				This:C1470._platform:="WindowsARM"
+			Else 
+				This:C1470._platform:="Windows"
+			End if 
 			This:C1470._executableName:=$executableName+".exe"
 			This:C1470._EOL:="\r\n"
 	End case 
@@ -151,3 +155,9 @@ Function _chmod()
 		LAUNCH EXTERNAL PROCESS:C811("chmod +x "+This:C1470.executableName)
 		//End if 
 	End if 
+	
+Function _isArm()->$isArm : Boolean
+	
+	var $processor : Text
+	$processor:=System info:C1571.processor
+	$isArm:=["apple"; "snapdragon"; "qualcomm"; "oryon"; "sq"; "ampere"; "altra"; "neoverse"; "graviton"; "cobalt"; "cortex"; "arm"].some(Formula:C1597($2=("@"+$1.value+"@")); $processor)
