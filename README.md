@@ -8,6 +8,13 @@ Local inference engine
 
 **aknowledgements**: [ggml-org/llama.cpp](https://github.com/ggml-org/llama.cpp)
 
+The CLI is built for `4` platforms:
+
+- macOS Apple Silicon
+- macOS Intel
+- Windows AMD
+- Windows ARM
+
 ### Apple Silicon
 
 * set `BUILD_SHARED_LIBS` to `FALSE`
