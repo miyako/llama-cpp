@@ -29,7 +29,6 @@ Else
 	$event.onTerminate:=Formula:C1597(LOG EVENT:C667(Into 4D debug message:K38:5; (["process"; $1.pid; "terminated!"].join(" "))))
 	
 /*
-	$options:={\
 embeddings
 */
 	
@@ -99,7 +98,7 @@ chat completion
 rerank
 */
 	
-	If (True:C214)
+	If (False:C215)
 		
 		$port:=8082
 		
@@ -115,7 +114,7 @@ rerank
 		$options:={\
 			embeddings: True:C214; \
 			pooling: "rank"; \
-			fit: True:C214; \
+			fit: "on"; \
 			log_disable: True:C214; \
 			reranking: True:C214}
 		
@@ -134,6 +133,43 @@ rerank
 		
 		$huggingface:=cs:C1710.event.huggingface.new($folder; $URL; $path)
 		$huggingfaces:=cs:C1710.event.huggingfaces.new([$huggingface])
+		
+		$llama:=cs:C1710.llama.new($port; $huggingfaces; $homeFolder; $options; $event)
+		
+	End if 
+	
+	If (False:C215)
+		
+		$folder:=$homeFolder.folder("translategemma-4b-it")  //where to keep the repo
+		$path:="translategemma-4b-it-Q4_K_M.gguf"  //path to the file
+		$URL:="keisuke-miyako/translategemma-4b-it-gguf-q4_k_m"  //path to the repo
+		
+		$temperature:=0.8  // (default: 0.8)
+		$ctx_size:=40000
+		$min_p:=0.1  // (default: 0.1, 0.0 = disabled)
+		$top_p:=0.9  //(default: 0.9, 1.0 = disabled)
+		$top_k:=40  //top-k sampling (default: 40, 0 = disabled)
+		$n_gpu_layers:=-1  //max. number of layers to store in VRAM (default: -1)
+		$repeat_penalty:=1  //(default: 1.0 = disabled)
+		$flash_attn:="auto"
+		
+		$huggingface:=cs:C1710.event.huggingface.new($folder; $URL; $path)
+		$huggingfaces:=cs:C1710.event.huggingfaces.new([$huggingface])
+		
+		$mmproj:=$folder.file("mmproj-model-f16.gguf")
+		
+		$options:={\
+			ctx_size: $ctx_size; \
+			temp: $temperature; \
+			top_k: $top_k; \
+			top_p: $top_p; \
+			min_p: $min_p; \
+			log_disable: True:C214; \
+			repeat_penalty: $repeat_penalty; \
+			fit: "on"; \
+			flash_attn: $flash_attn; \
+			mmproj: $mmproj; \
+			jinja: True:C214}
 		
 		$llama:=cs:C1710.llama.new($port; $huggingfaces; $homeFolder; $options; $event)
 		
