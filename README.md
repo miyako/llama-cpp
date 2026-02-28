@@ -51,16 +51,24 @@ ws2_32.lib
 ARM NEON and fp16 C-intrinsics not supported by MSVC native compiler. Use `Clang` or `ninja` instead.
 
 ```
-cmake -B build
- -DLLAMA_SERVER_SSL=ON
- -DOPENSSL_ROOT_DIR="C:\openssl-arm64"
- -DLLAMA_BUILD_TESTS=OFF
+cmake -B build -G "Visual Studio 17 2022" -A ARM64 -T ClangCL
  -DCMAKE_SYSTEM_PROCESSOR=ARM64
+ -DOPENSSL_ROOT_DIR={arm64 openssl dir}
+ -DLLAMA_BUILD_TESTS=OFF
  -DLLAMA_BUILD_SERVER=ON
- -DBUILD_SHARED_LIBS=FALSE
+ -DGGML_OPENMP=OFF
  -DGGML_CCACHE=OFF
- -DLLAMA_OPENMP=OFF
- -DLLAMA_STATIC=ON
+```
+
+
+```
+cmake -B build
+ -DCMAKE_SYSTEM_PROCESSOR=ARM64
+ -DOPENSSL_ROOT_DIR={arm64 openssl dir}
+ -DLLAMA_BUILD_TESTS=OFF
+ -DLLAMA_BUILD_SERVER=ON
+ -DGGML_OPENMP=OFF
+ -DGGML_CCACHE=OFF
 ```
 
 ```
