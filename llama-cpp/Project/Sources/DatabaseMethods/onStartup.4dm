@@ -138,7 +138,7 @@ rerank
 		
 	End if 
 	
-	If (False:C215)
+	If (True:C214)
 		
 		$folder:=$homeFolder.folder("translategemma-4b-it")  //where to keep the repo
 		$path:="translategemma-4b-it-Q4_K_M.gguf"  //path to the file
@@ -154,7 +154,9 @@ rerank
 		$flash_attn:="auto"
 		
 		$huggingface:=cs:C1710.event.huggingface.new($folder; $URL; $path)
-		$huggingfaces:=cs:C1710.event.huggingfaces.new([$huggingface])
+		$imageParser:=cs:C1710.event.huggingface.new($folder; $URL; "mmproj-model-f16.gguf")
+		
+		$huggingfaces:=cs:C1710.event.huggingfaces.new([$huggingface; $imageParser])
 		
 		$mmproj:=$folder.file("mmproj-model-f16.gguf")
 		
