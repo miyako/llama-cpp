@@ -55,7 +55,7 @@ ws2_32.lib
 
 ### Windows ARM
 
-ARM NEON and fp16 C-intrinsics not supported by MSVC native compiler. Use `Clang` or `ninja` instead.
+ARM NEON and fp16 C-intrinsics not supported by MSVC native compiler. Use `Clang` or `ninja`.
 
 ```
 cmake -B build -G "Visual Studio 17 2022" -A ARM64 -T ClangCL
