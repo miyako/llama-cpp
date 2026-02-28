@@ -145,7 +145,7 @@ rerank
 		$URL:="keisuke-miyako/translategemma-4b-it-gguf-q4_k_m"  //path to the repo
 		
 		$temperature:=0.8  // (default: 0.8)
-		$ctx_size:=40000
+		$ctx_size:=8192
 		$min_p:=0.1  // (default: 0.1, 0.0 = disabled)
 		$top_p:=0.9  //(default: 0.9, 1.0 = disabled)
 		$top_k:=40  //top-k sampling (default: 40, 0 = disabled)
