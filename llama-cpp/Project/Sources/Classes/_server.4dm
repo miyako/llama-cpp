@@ -38,7 +38,7 @@ Function start($option : Object) : 4D:C1709.SystemWorker
 				$command+=(" --"+$key+" "+This:C1470.escape($arg.value)+" ")
 			: ($valueType=Is boolean:K8:9) && ($arg.value)
 				$command+=(" --"+$key+" ")
-			: ($valueType=Is object:K8:27) && (OB Instance of:C1731($arg.value; 4D:C1709.File))
+			: ($valueType=Is object:K8:27) && (OB Instance of:C1731($arg.value; 4D:C1709.File)) && ($arg.value.exists)
 				$command+=(" --"+$key+" "+This:C1470.escape(This:C1470.expand($arg.value).path))
 			Else 
 				//
