@@ -48,9 +48,7 @@ ws2_32.lib
 
 ### Windows ARM
 
-MSVC native compiler not supported. Use `Clang` or `ninja`.
-
-GGUF heavily relies on specific ARM NEON and fp16 C-intrinsics that Microsoft's native compiler does not support.
+ARM NEON and fp16 C-intrinsics not supported by MSVC native compiler. Use `Clang` or `ninja` instead.
 
 ```
 cmake -B build -DLLAMA_SERVER_SSL=ON -DOPENSSL_ROOT_DIR="C:\openssl-arm64" -DLLAMA_BUILD_TESTS=OFF -DCMAKE_SYSTEM_PROCESSOR=ARM64 -DLLAMA_BUILD_SERVER=ON -DBUILD_SHARED_LIBS=FALSE -DGGML_CCACHE=OFF
