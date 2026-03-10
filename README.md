@@ -68,18 +68,6 @@ cmake -B build -G "Visual Studio 17 2022" -A ARM64 -T ClangCL
  -DBUILD_SHARED_LIBS=FALSE
 ```
 
-
-```
-cmake -B build
- -DCMAKE_SYSTEM_PROCESSOR=ARM64
- -DOPENSSL_ROOT_DIR={arm64 openssl dir}
- -DLLAMA_BUILD_TESTS=OFF
- -DLLAMA_BUILD_SERVER=ON
- -DGGML_OPENMP=OFF
- -DGGML_CCACHE=OFF
- -DBUILD_SHARED_LIBS=FALSE
-```
-
 ```
 cmake --build build --config Release
 ```
