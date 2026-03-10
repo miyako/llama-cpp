@@ -30,27 +30,14 @@ The CLI is built for `4` platforms:
 ~~c.f. https://github.com/ggml-org/llama.cpp/issues/9937~~
 
 ```
-cmake -S . -B build -A x64 ^
- -DBUILD_SHARED_LIBS=FALSE ^
- -DCMAKE_TOOLCHAIN_FILE={...\vcpkg\scripts\buildsystems\vcpkg.cmake} ^
+cmake -B build -G "Visual Studio 17 2022" -A x64 
+ -DOPENSSL_ROOT_DIR={arm64 openssl dir}
+ -DLLAMA_BUILD_TESTS=OFF
  -DLLAMA_BUILD_SERVER=ON
-
-cmake --build build --config Release
+ -DGGML_OPENMP=OFF
+ -DGGML_CCACHE=OFF
+ -DBUILD_SHARED_LIBS=FALSE
 ```
-
-* open project with visual studio
-* add curl include paths
-* add libraries
-
-```
-Crypt32.lib
-Secur32.lib
-Iphlpapi.lib
-zlib.lib
-ws2_32.lib
-``` 
-
-* build each target with `MT`
 
 ### Windows ARM
 
