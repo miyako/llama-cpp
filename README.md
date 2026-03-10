@@ -10,8 +10,8 @@ Local inference engine
 
 The CLI is built for `4` platforms:
 
-- macOS Apple Silicon `b7880`
-- macOS Intel `b7880`
+- macOS Apple Silicon `b8276`
+- macOS Intel `b8276`
 - Windows AMD `b7880`
 - Windows ARM `b8179`
 
