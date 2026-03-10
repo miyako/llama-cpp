@@ -38,7 +38,7 @@ cmake -S . -B build -A x64 ^
 cmake --build build --config Release
 ```
 
-* open project sith visual studio
+* open project with visual studio
 * add curl include paths
 * add libraries
 
@@ -46,7 +46,6 @@ cmake --build build --config Release
 Crypt32.lib
 Secur32.lib
 Iphlpapi.lib
-libcurl.lib
 zlib.lib
 ws2_32.lib
 ``` 
