@@ -12,8 +12,8 @@ The CLI is built for `4` platforms:
 
 - macOS Apple Silicon `b8276`
 - macOS Intel `b8276`
-- Windows AMD `b7880`
-- Windows ARM `b8179`
+- Windows AMD `b8276`
+- Windows ARM `b8276`
 
 ### Apple Silicon
 
