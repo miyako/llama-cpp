@@ -15,14 +15,41 @@ The CLI is built for `4` platforms:
 - Windows AMD `b8276`
 - Windows ARM `b8276`
 
-### Apple Silicon
+#### Apple Silicon
 
-* set `BUILD_SHARED_LIBS` to `FALSE`
+```
+git clone https://github.com/ggml-org/llama.cpp.git --recursive
+cd llama.cpp
+```
+
+* Use `cmake.app` with generator=xcode
+* Set `BUILD_SHARED_LIBS` to `FALSE`
+* `LLAMA_BUILD_SERVER` is `ON` by default
+* Set `LLAMA_BUILD_TESTS` to `OFF`
+* Set path to static OpenSSL lib, include
+* Open Xcode
+
+Build:
+
+- libllama.a
+- llama-bench
+- llama-cli
+- llama-diffusion-cli
+- llama-embedding
+- llama-gguf
+- llama-gguf-split
+- llama-imatrix
+- llama-perplexity
+- llama-quantize
+- llama-server
+- llama-tokenize
  
-### Intel
+#### Intel (on Apple Silicon)
 
-* set `GGML_CPU` to `FALSE`
-* set `CMAKE_OSX_ARCHITECTURES`  to `x86_64`
+* Back to `cmake.app`
+* Set `GGML_CPU` to `FALSE`
+* Set `CMAKE_OSX_ARCHITECTURES`  to `x86_64`
+* Back to Xcode
 
 ### Windows
 
