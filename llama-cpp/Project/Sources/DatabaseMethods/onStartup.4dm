@@ -32,27 +32,56 @@ Else
 embeddings
 */
 	
-	If (False:C215)
+	If (True:C214)
 		
-		$port:=8081
+		$port:=8080
 		
-		$folder:=$homeFolder.folder("jina-embeddings-v4-text-matching-Q4_K_M")  //where to keep the repo
-		$path:="jina-embeddings-v4-text-matching-Q4_K_M.gguf"  //path to the file
-		$URL:="jinaai/jina-embeddings-v4-text-matching-GGUF"  //path to the repo
+		$folder:=$homeFolder.folder("harrier-oss-v1-0.6b")
+		$path:="harrier-oss-v1-0.6b-Q4_k_m.gguf"
+		$URL:="keisuke-miyako/harrier-oss-v1-0.6b-gguf-q4_k_m"
+		
+		//$folder:=$homeFolder.folder("jina-embeddings-v4-text-matching-Q4_K_M")  //where to keep the repo
+		//$path:="jina-embeddings-v4-text-matching-Q4_K_M.gguf"  //path to the file
+		//$URL:="jinaai/jina-embeddings-v4-text-matching-GGUF"  //path to the repo
+		
+		$pooling:="last"
 		
 		$huggingface:=cs:C1710.event.huggingface.new($folder; $URL; $path)
 		$huggingfaces:=cs:C1710.event.huggingfaces.new([$huggingface])
+		$cache_type_k:="f16"
+		$cache_type_v:="f16"
+		$n_gpu_layers:=0
+		$threads:=6
+		$batches:=1
+		$ubatch_size:=512
+		$batch_size:=2048
+		$max_position_embeddings:=8192
+		
+		$logFile:=$folder.file("llama.log")
+		$folder.create()
+		If (Not:C34($logFile.exists))
+			$logFile.setContent(4D:C1709.Blob.new())
+		End if 
 		
 		$options:={\
 			embeddings: True:C214; \
-			pooling: "mean"; \
-			threads: 4; \
-			threads_batch: 4; \
-			threads_http: 4; \
-			log_disable: True:C214; \
-			n_gpu_layers: -1}
+			pooling: $pooling; \
+			ctx_size: $max_position_embeddings*$batches; \
+			batch_size: $batch_size; \
+			ubatch_size: $ubatch_size; \
+			parallel: $batches; \
+			threads: $threads; \
+			threads_batch: $threads; \
+			threads_http: 2; \
+			n_gpu_layers: $n_gpu_layers; \
+			cache_type_k: $cache_type_k; \
+			cache_type_v: $cache_type_v; \
+			flash_attn: "on"; \
+			log_disable: False:C215; \
+			log_file: $logFile; \
+			cont_batching: True:C214}
 		
-		//$llama:=cs.llama.new($port; $huggingfaces; $homeFolder; $options; $event)
+		$llama:=cs:C1710.llama.new($port; $huggingfaces; $homeFolder; $options; $event)
 		
 	End if 
 	
@@ -62,11 +91,11 @@ chat completion
 	
 	If (False:C215)
 		
-		$port:=8082
+		$port:=8080
 		
-		$folder:=$homeFolder.folder("Qwen3-4B-Instruct-2507")  //where to keep the repo
-		$path:="Qwen3-4B-Instruct-2507-Q4_K_M.gguf"  //path to the file
-		$URL:="keisuke-miyako/Qwen3-4B-Instruct-2507-gguf-q4k_m"  //path to the repo
+		$folder:=$homeFolder.folder("Llama-3-ELYZA-JP-8B")
+		$path:="Llama-3-ELYZA-JP-8B-Q4_K_M.gguf"
+		$URL:="keisuke-miyako/Llama-3-ELYZA-JP-8B-gguf-q4_k_m"
 		
 		$options:={\
 			ctx_size: 4096; \
@@ -82,10 +111,6 @@ chat completion
 			repeat_penalty: 1; \
 			n_gpu_layers: -1; \
 			jinja: True:C214}
-		
-		$folder:=$homeFolder.folder("translategemma-4b-it")  //where to keep the repo
-		$path:="translategemma-4b-it-Q4_K_M.gguf"  //path to the file
-		$URL:="keisuke-miyako/translategemma-4b-it-gguf-q4_k_m"  //path to the repo
 		
 		$huggingface:=cs:C1710.event.huggingface.new($folder; $URL; $path)
 		$huggingfaces:=cs:C1710.event.huggingfaces.new([$huggingface])
@@ -138,7 +163,7 @@ rerank
 		
 	End if 
 	
-	If (True:C214)
+	If (False:C215)
 		
 		$folder:=$homeFolder.folder("translategemma-4b-it")  //where to keep the repo
 		$path:="translategemma-4b-it-Q4_K_M.gguf"  //path to the file
