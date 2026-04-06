@@ -153,6 +153,8 @@ Function _execute()
 	End if 
 	
 	Case of 
+		: ($vt=Is null:K8:31)
+			//
 		: ($vt=Is object:K8:27) || ($vt=Is collection:K8:32)
 			
 			This:C1470._worker.postMessage(JSON Stringify:C1217($message))

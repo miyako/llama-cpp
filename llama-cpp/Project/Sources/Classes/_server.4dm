@@ -47,5 +47,15 @@ Function start($option : Object) : 4D:C1709.SystemWorker
 	
 	//SET TEXT TO PASTEBOARD($command)
 	
-	return This:C1470.controller.execute($command).worker
+	var $HF_HOME; $LLAMA_CACHE : 4D:C1709.Folder
+	$HF_HOME:=Folder:C1567(Temporary folder:C486; fk platform path:K87:2).folder(Generate UUID:C1066)
+	$HF_HOME.create()
 	
+	$LLAMA_CACHE:=Folder:C1567(Temporary folder:C486; fk platform path:K87:2).folder(Generate UUID:C1066)
+	$LLAMA_CACHE.create()
+	
+	This:C1470.controller.variables:={\
+		HF_HOME: $HF_HOME.path; \
+		LLAMA_CACHE: $LLAMA_CACHE.path}
+	
+	return This:C1470.controller.execute($command).worker

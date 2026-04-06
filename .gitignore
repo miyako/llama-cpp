@@ -5,3 +5,4 @@ llama-cpp/Libraries/lib4d-arm64.dylib
 a/libssl.a
 a/libcrypto.a
 include/*
+bin/*
