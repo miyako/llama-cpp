@@ -69,14 +69,8 @@ cmake -B build -G "Visual Studio 17 2022" -A x64
 ARM NEON and fp16 C-intrinsics not supported by MSVC native compiler. Use `Clang` or `ninja`.
 
 ```
-cmake -B build -G "Visual Studio 17 2022" -A ARM64 -T ClangCL
- -DCMAKE_SYSTEM_PROCESSOR=ARM64
- -DOPENSSL_ROOT_DIR={arm64 openssl dir}
- -DLLAMA_BUILD_TESTS=OFF
- -DLLAMA_BUILD_SERVER=ON
- -DGGML_OPENMP=OFF
- -DGGML_CCACHE=OFF
- -DBUILD_SHARED_LIBS=FALSE
+cmake -B build -G "Visual Studio 17 2022" -A ARM64 -T ClangCL -DCMAKE_SYSTEM_PROCESSOR=ARM64 -DOPENSSL_ROOT_DIR=C:\Users\miyako\Documents\GitHub\llama-cpp\lib\arm64 -DLLAMA_BUILD_TESTS=OFF
+ -DLLAMA_BUILD_SERVER=ON -DGGML_OPENMP=OFF -DGGML_CCACHE=OFF -DBUILD_SHARED_LIBS=FALSE  -DOPENSSL_INCLUDE_DIR=C:\Users\miyako\Documents\GitHub\llama-cpp\include
 ```
 
 ```
