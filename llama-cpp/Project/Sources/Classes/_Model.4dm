@@ -26,8 +26,9 @@ Function onDownload($oid : Text)
 		var $model : Object
 		$model:=OB Instance of:C1731($downloaded.folder; 4D:C1709.Folder)\
 			 ? $downloaded.folder.file($downloaded.path) : $downloaded.folder
-		
-		This:C1470.options.model:=$model
+		If (This:C1470.options.model=Null:C1517)  //first file is main model
+			This:C1470.options.model:=$model
+		End if 
 	End if 
 	
 	Super:C1706.onDownload($oid)

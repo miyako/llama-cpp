@@ -32,7 +32,7 @@ Else
 embeddings
 */
 	
-	If (True:C214)
+	If (False:C215)
 		
 		$port:=8080
 		
@@ -89,30 +89,50 @@ embeddings
 chat completion
 */
 	
-	If (False:C215)
+	If (True:C214)
 		
 		$port:=8080
 		
-		$folder:=$homeFolder.folder("Llama-3-ELYZA-JP-8B")
-		$path:="Llama-3-ELYZA-JP-8B-Q4_K_M.gguf"
-		$URL:="keisuke-miyako/Llama-3-ELYZA-JP-8B-gguf-q4_k_m"
+		$folder:=$homeFolder.folder("gemma-4-E2B")
+		$path:="gemma-4-E2B-it-Q4_K_M.gguf"
+		$mmproj:="mmproj-F16.gguf"
+		$URL:="unsloth/gemma-4-E2B-it-GGUF"
+		$cache_type_k:="q4_0"
+		$cache_type_v:="q4_0"
+		$n_gpu_layers:=99
+		$threads:=6
+		$batches:=1
+		$ubatch_size:=512
+		$batch_size:=2048
+		$max_position_embeddings:=8192
+		
+		$logFile:=$folder.file("llama.log")
+		$folder.create()
+		If (Not:C34($logFile.exists))
+			$logFile.setContent(4D:C1709.Blob.new())
+		End if 
 		
 		$options:={\
-			ctx_size: 4096; \
-			batch_size: 2048; \
-			threads: 4; \
-			n_predict: -1; \
-			threads_batch: 4; \
-			threads_http: 4; \
-			temp: 0.3; \
-			top_k: 40; \
-			top_p: 0.9; \
-			log_disable: True:C214; \
+			ctx_size: $max_position_embeddings*$batches; \
+			batch_size: $batch_size; \
+			ubatch_size: $ubatch_size; \
+			parallel: $batches; \
+			threads: $threads; \
+			threads_batch: $threads; \
+			threads_http: 2; \
+			temp: 1; \
+			min_p: 0; \
+			top_k: 20; \
+			top_p: 0.95; \
 			repeat_penalty: 1; \
-			n_gpu_layers: -1; \
+			presence_penalty: 0; \
+			mmproj: $folder.file($mmproj); \
+			n_gpu_layers: $n_gpu_layers; \
+			log_disable: False:C215; \
+			log_file: $logFile; \
 			jinja: True:C214}
 		
-		$huggingface:=cs:C1710.event.huggingface.new($folder; $URL; $path)
+		$huggingface:=cs:C1710.event.huggingface.new($folder; $URL; [$path; $mmproj])
 		$huggingfaces:=cs:C1710.event.huggingfaces.new([$huggingface])
 		
 		$llama:=cs:C1710.llama.new($port; $huggingfaces; $homeFolder; $options; $event)

@@ -51,7 +51,7 @@ Class constructor($port : Integer; $huggingfaces : cs:C1710.event.huggingfaces; 
 		$request:=4D:C1709.HTTPRequest.new($API).wait()
 		If ($request.response.status=Null:C1517)
 			This:C1470._models.push([$USER; $REPO].join("/"))
-			This:C1470.options.model:=$huggingface.folder.file($huggingface.path)
+			This:C1470.options.model:=$huggingface.folder.file($huggingface.path)  //assuming the 1st path is model
 			This:C1470.offline:=True:C214
 			continue
 		End if 
@@ -70,7 +70,7 @@ Class constructor($port : Integer; $huggingfaces : cs:C1710.event.huggingfaces; 
 							path: $1.value.path; \
 							oid: $1.value.oid; \
 							folder: $5}); $USER; $REPO; $BRANCH; $huggingface.folder; $huggingface.domain; $huggingface.name)
-						This:C1470.files:=This:C1470.files.combine($resources.query("type == :1 and path == :2"; "file"; $huggingface.path))
+						This:C1470.files:=This:C1470.files.combine($resources.query("type == :1 and path in :2"; "file"; $huggingface.paths))
 						This:C1470._models.push([$USER; $REPO].join("/"))
 					: (OB Instance of:C1731($huggingface.folder; 4D:C1709.File))
 						var $file : Object
