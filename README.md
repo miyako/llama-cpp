@@ -55,6 +55,12 @@ Build:
 
 ### Windows
 
+add
+
+```c
+#include <chrono>
+```
+
 ~~set `LLAMA_CURL` to `FALSE`~~
 ~~c.f. https://github.com/ggml-org/llama.cpp/issues/9937~~
 
