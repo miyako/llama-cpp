@@ -13,6 +13,10 @@ The CLI is built for `4` platforms:
 - macOS Apple Silicon, Intel `8667 (c08d28d08)`
 - Windows AMD, ARM `8667 (c08d28d08)`
 
+```
+git clone https://github.com/piDack/llama.cpp -b support_glm_edge_model
+```
+
 #### Apple Silicon
 
 ```
