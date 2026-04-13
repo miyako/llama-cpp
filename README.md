@@ -55,13 +55,14 @@ Build:
 ~~c.f. https://github.com/ggml-org/llama.cpp/issues/9937~~
 
 ```
-cmake -B build -G "Visual Studio 17 2022" -A x64 
- -DOPENSSL_ROOT_DIR={arm64 openssl dir}
- -DLLAMA_BUILD_TESTS=OFF
- -DLLAMA_BUILD_SERVER=ON
- -DGGML_OPENMP=OFF
- -DGGML_CCACHE=OFF
- -DBUILD_SHARED_LIBS=FALSE
+cmake -B build -G "Visual Studio 17 2022" -A x64 ^
+ -D OPENSSL_INCLUDE_DIR=C:\Users\miyako\Documents\GitHub\llama-cpp\include ^
+ -DOPENSSL_ROOT_DIR=C:\Users\miyako\Documents\GitHub\llama-cpp\lib\x64 ^
+ -DLLAMA_BUILD_TESTS=OFF ^
+ -DLLAMA_BUILD_SERVER=ON ^
+ -DGGML_OPENMP=OFF ^
+ -DGGML_CCACHE=OFF ^
+ -DBUILD_SHARED_LIBS=FALSE 
 ```
 
 ### Windows ARM
