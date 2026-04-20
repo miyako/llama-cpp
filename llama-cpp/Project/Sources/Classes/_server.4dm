@@ -39,7 +39,22 @@ Function start($option : Object) : 4D:C1709.SystemWorker
 			: ($valueType=Is boolean:K8:9) && ($arg.value)
 				$command+=(" --"+$key+" ")
 			: ($valueType=Is object:K8:27) && (OB Instance of:C1731($arg.value; 4D:C1709.File)) && ($arg.value.exists)
-				$command+=(" --"+$key+" "+This:C1470.escape(This:C1470.expand($arg.value).path))
+				$command+=(" --"+$key+" "+This:C1470.escape(This:C1470.expand($arg.value).path))+" "
+			: ($valueType=Is collection:K8:32)
+				var $value : Variant
+				For each ($value; $arg.value)
+					$valueTypeValue:=Value type:C1509($value)
+					Case of 
+						: ($valueTypeValue=Is real:K8:4)
+							$command+=(" --"+$key+" "+String:C10($value)+" ")
+						: ($valueTypeValue=Is text:K8:3)
+							$command+=(" --"+$key+" "+This:C1470.escape($value)+" ")
+						: ($valueTypeValue=Is boolean:K8:9) && ($value)
+							$command+=(" --"+$key+" ")
+						: ($valueTypeValue=Is object:K8:27) && (OB Instance of:C1731($value; 4D:C1709.File)) && ($value.exists)
+							$command+=(" --"+$key+" "+This:C1470.escape(This:C1470.expand($value).path))+" "
+					End case 
+				End for each 
 			Else 
 				//
 		End case 
