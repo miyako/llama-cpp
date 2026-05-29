@@ -59,7 +59,7 @@ Function start($option : Object) : 4D:C1709.SystemWorker
 				//
 		End case 
 	End for each 
-		
+	
 	var $HF_HUB_CACHE; $LLAMA_CACHE : 4D:C1709.Folder
 	$HF_HUB_CACHE:=Folder:C1567(Temporary folder:C486; fk platform path:K87:2).folder(Generate UUID:C1066)
 	$HF_HUB_CACHE.create()

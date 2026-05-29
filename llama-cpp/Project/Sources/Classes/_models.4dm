@@ -57,6 +57,7 @@ Class constructor($port : Integer; $huggingfaces : cs:C1710.event.huggingfaces; 
 		End if 
 		If ($request.response.status=200)
 			If (Value type:C1509($request.response)=Is object:K8:27)
+				var $file : 4D:C1709.File
 				Case of 
 					: (OB Instance of:C1731($huggingface.folder; 4D:C1709.Folder))
 						$resources:=$request.response.body.map(Formula:C1597($1.result:={\
@@ -70,10 +71,36 @@ Class constructor($port : Integer; $huggingfaces : cs:C1710.event.huggingfaces; 
 							path: $1.value.path; \
 							oid: $1.value.oid; \
 							folder: $5}); $USER; $REPO; $BRANCH; $huggingface.folder; $huggingface.domain; $huggingface.name)
-						This:C1470.files:=This:C1470.files.combine($resources.query("type == :1 and path in :2"; "file"; $huggingface.paths))
+						
+						For each ($file; $resources.query("type == :1 and path in :2"; "file"; $huggingface.paths))
+							//any file not in option is assumed to be the main model
+							var $option : Text
+							var $match : Boolean
+							$match:=False:C215
+							For each ($option; This:C1470.options)
+								var $value : Variant
+								$value:=This:C1470.options[$option]
+								var $vt : Integer
+								$vt:=Value type:C1509($value)
+								If ($vt#Is object:K8:27)
+									continue
+								End if 
+								If (Not:C34(OB Instance of:C1731($value; 4D:C1709.File)))
+									continue
+								End if 
+								If ($file.path=("@"+$value.fullName))
+									$match:=True:C214
+									break
+								End if 
+							End for each 
+							If ($match)
+								This:C1470.files.push($file)  //model: append
+							Else 
+								This:C1470.files.unshift($file)  //default: prepend
+							End if 
+						End for each 
 						This:C1470._models.push([$USER; $REPO].join("/"))
 					: (OB Instance of:C1731($huggingface.folder; 4D:C1709.File))
-						var $file : Object
 						$file:=$request.response.body.query("path == :1"; $huggingface.name).first()
 						If ($file=Null:C1517)
 							continue
