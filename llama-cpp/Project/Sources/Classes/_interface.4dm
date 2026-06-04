@@ -24,6 +24,6 @@ Function _onTCP($status : Object; $options : Object)
 	
 Function terminate()
 	
-	var $ONNX : cs:C1710.workers.worker
-	$ONNX:=cs:C1710.workers.worker.new(cs:C1710._server)
-	$ONNX.terminate()
+	var $worker : cs:C1710.workers.worker
+	$worker:=cs:C1710.workers.worker.new(cs:C1710._server)
+	$worker.terminate()
