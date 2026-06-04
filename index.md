@@ -72,7 +72,7 @@ log_file: $logFile; \
 log_disable: False; \
 n_gpu_layers: $n_gpu_layers}
 
-$llama:=cs.llama.new($port; Null; $homeFolder; $options; $event)
+$llama:=cs.llama.llama.new($port; Null; $homeFolder; $options; $event)
 ```
 
 #### Usage
