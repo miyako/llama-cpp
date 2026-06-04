@@ -71,4 +71,6 @@ Function start($option : Object) : 4D:C1709.SystemWorker
 		HF_HUB_CACHE: $HF_HUB_CACHE.path; \
 		LLAMA_CACHE: $LLAMA_CACHE.path}
 	
+	ALERT:C41($command)
+	
 	return This:C1470.controller.execute($command).worker

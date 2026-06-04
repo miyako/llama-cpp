@@ -13,6 +13,68 @@ layout: default
 
 [**llama.cpp**](https://github.com/ggml-org/llama.cpp) is an open-source project that allows you to run Meta's LLaMA language models locally on CPUs without heavy frameworks like PyTorch or TensorFlow. Essentially, it’s a **lightweight C++ implementation optimized for inference**.
 
+#### New!
+
+Router mode is now supported
+
+```4d
+$n_gpu_layers:=99
+
+var $iniFile : 4D.File
+var $ini : Collection
+
+$ini:=[]
+$ini.push("version = 1")
+
+$ini.push("[embeddinggemma]")
+$ini.push("model = "+$homeFolder.file("embeddinggemma-300m/embeddinggemma-300m-Q8_0.gguf").path)
+$ini.push("pooling = mean")
+
+$ini.push("[bge-m3]")
+$ini.push("model = "+$homeFolder.file("bge-m3/bge-m3-Q8_0.gguf").path)
+$ini.push("pooling = cls")
+
+$ini.push("[Qwen3-Embedding-0.6B]")
+$ini.push("model = "+$homeFolder.file("Qwen3-Embedding-0.6B/Qwen3-Embedding-0.6B-Q8_0.gguf").path)
+$ini.push("pooling = last")
+
+$port:=8888
+$folder:=$homeFolder.folder("llama-"+String($port))
+
+$iniFile:=$folder.file("models.ini")
+$iniFile.setText($ini.join("\n"))
+
+$max_position_embeddings:=1024
+$batch_size:=$max_position_embeddings
+$ubatch_size:=$max_position_embeddings
+
+$batches:=2
+$threads:=2
+$threads_batch:=2
+
+$logFile:=$folder.file("llama.log")
+$folder.create()
+If (Not($logFile.exists))
+    $logFile.setContent(4D.Blob.new())
+End if 
+
+$options:={\
+embeddings: True; \
+models_preset: $iniFile; \
+ctx_size: $max_position_embeddings*$batches; \
+batch_size: $batch_size*$batches; \
+ubatch_size: $ubatch_size; \
+parallel: $batches; \
+threads: $threads; \
+threads_batch: $threads_batch; \
+threads_http: $batches+1; \
+log_file: $logFile; \
+log_disable: False; \
+n_gpu_layers: $n_gpu_layers}
+
+$llama:=cs.llama.new($port; Null; $homeFolder; $options; $event)
+```
+
 #### Usage
 
 Instantiate `cs.llama.llama` in your *On Startup* database method:

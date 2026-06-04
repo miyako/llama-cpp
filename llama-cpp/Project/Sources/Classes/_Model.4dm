@@ -10,7 +10,18 @@ Class constructor($port : Integer; $huggingfaces : cs:C1710.event.huggingfaces; 
 		This:C1470.download()
 	End if 
 	
+Function _isRouterMode() : Boolean
+	
+	return ((OB Instance of:C1731(This:C1470.options.models_preset; 4D:C1709.File))\
+		 && (This:C1470.options.models_preset.exists))\
+		 || ((OB Instance of:C1731(This:C1470.options.models_dir; 4D:C1709.Folder))\
+		 && (This:C1470.options.models_dir.exists))
+	
 Function models() : cs:C1710.event.models
+	
+	If (This:C1470._isRouterMode())
+		return cs:C1710.event.models.new([cs:C1710.event.model.new()])
+	End if 
 	
 	var $model : cs:C1710.event.model
 	$model:=cs:C1710.event.model.new(This:C1470.options.model.name; Not:C34(This:C1470.options.model.exists))
