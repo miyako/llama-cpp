@@ -8,7 +8,7 @@ Local inference engine
 
 **aknowledgements**: [ggml-org/llama.cpp](https://github.com/ggml-org/llama.cpp)
 
-See [`index.md`](index.md) for usage information.
+See [`index.md`](index.md) for component information.
 
 The CLI is built for `4` platforms:
 
