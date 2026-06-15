@@ -8,6 +8,8 @@ Local inference engine
 
 **aknowledgements**: [ggml-org/llama.cpp](https://github.com/ggml-org/llama.cpp)
 
+See [`index.md`](index.md) for usage information.
+
 The CLI is built for `4` platforms:
 
 - macOS Apple Silicon, Intel `9374`
