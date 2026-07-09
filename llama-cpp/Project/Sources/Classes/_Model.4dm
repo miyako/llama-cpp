@@ -30,15 +30,39 @@ Function models() : cs:C1710.event.models
 	
 Function onDownload($oid : Text)
 	
-	var $downloaded : cs:C1710.event.huggingface
-	$downloaded:=This:C1470.files.query("oid == :1"; $oid).first()
-	
-	If ($downloaded#Null:C1517)
-		var $model : Object
-		$model:=OB Instance of:C1731($downloaded.folder; 4D:C1709.Folder)\
-			 ? $downloaded.folder.file($downloaded.path) : $downloaded.folder
-		If (This:C1470.options.model=Null:C1517)  //first file is main model
-			This:C1470.options.model:=$model
+	If (This:C1470.options.model=Null:C1517)
+		var $downloaded : cs:C1710.event.huggingface
+		$downloaded:=This:C1470.files.query("oid == :1"; $oid).first()
+		If ($downloaded#Null:C1517)
+			var $model : Object
+			$model:=OB Instance of:C1731($downloaded.folder; 4D:C1709.Folder)\
+				 ? $downloaded.folder.file($downloaded.path) : $downloaded.folder
+			
+			//any file not in option is assumed to be the main model
+			var $option : Text
+			var $match : Boolean
+			$match:=False:C215
+			
+			For each ($option; This:C1470.options)
+				var $value : Variant
+				$value:=This:C1470.options[$option]
+				var $vt : Integer
+				$vt:=Value type:C1509($value)
+				If ($vt#Is object:K8:27)
+					continue
+				End if 
+				If (Not:C34(OB Instance of:C1731($value; 4D:C1709.File)))
+					continue
+				End if 
+				If ($model.path=("@"+$value.fullName))
+					$match:=True:C214
+					break
+				End if 
+			End for each 
+			
+			If (Not:C34($match))
+				This:C1470.options.model:=$model
+			End if 
 		End if 
 	End if 
 	

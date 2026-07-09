@@ -131,15 +131,85 @@ If (False:C215)
 	
 End if 
 
+$port:=8081
+
 If (True:C214)
 	
-	$port:=8081
+/*
+	
+without speculative draft assitant
+	
+*/
 	
 	$folder:=$homeFolder.folder("gemma-4")
-	$path:="gemma-4-E4B-it-Q4_K_M.gguf"
-	$mmproj:="mmproj-F16.gguf"
-	$assistant:="gemma-4-E2B-it-assistant-f16.gguf"
-	$URL:="keisuke-miyako/gemma-4-E2B-it-gguf"
+	$path:="gemma-4-E4B-it-q4_k_m.gguf"
+	$mmproj:="mmproj-f16.gguf"
+	//$assistant:="mtp-gemma-4-E4B-it.gguf"
+	$URL:="keisuke-miyako/gemma-4-E4B-it-gguf"
+	$cache_type_k:="q4_0"
+	$cache_type_v:="q4_0"
+	$n_gpu_layers:=99
+	$threads:=6
+	$batches:=1
+	$ubatch_size:=512
+	$batch_size:=2048
+	$max_position_embeddings:=8192
+	
+	var $logFile : 4D:C1709.File
+	$logFile:=$folder.file("llama.log")
+	$folder.create()
+	If (Not:C34($logFile.exists))
+		$logFile.setContent(4D:C1709.Blob.new())
+	End if 
+	
+	var $options : Object
+	
+	$options:={\
+		ctx_size: $max_position_embeddings*$batches; \
+		batch_size: $batch_size; \
+		ubatch_size: $ubatch_size; \
+		parallel: $batches; \
+		threads: $threads; \
+		threads_batch: $threads; \
+		threads_http: 2; \
+		temp: 1; \
+		min_p: 0; \
+		top_k: 20; \
+		top_p: 0.95; \
+		repeat_penalty: 1; \
+		presence_penalty: 0; \
+		mmproj: $folder.file($mmproj); \
+		n_gpu_layers: $n_gpu_layers; \
+		log_disable: False:C215; \
+		log_file: $logFile; \
+		jinja: True:C214}
+	
+	var $huggingfaces : cs:C1710.event.huggingfaces
+	
+/*
+models passed in $3 are downloaded if necessary
+*/
+	
+	$huggingface:=cs:C1710.event.huggingface.new($folder; $URL; [$path; $assistant; $mmproj])
+	$huggingfaces:=cs:C1710.event.huggingfaces.new([$huggingface])
+	
+	$llama:=cs:C1710.llama.new($port; $huggingfaces; $homeFolder; $options; $event)
+	
+End if 
+
+If (False:C215)
+	
+/*
+	
+with speculative draft assitant
+	
+*/
+	
+	$folder:=$homeFolder.folder("gemma-4")
+	$path:="gemma-4-E4B-it-q4_k_m.gguf"
+	$mmproj:="mmproj-f16.gguf"
+	$assistant:="mtp-gemma-4-E4B-it.gguf"
+	$URL:="keisuke-miyako/gemma-4-E4B-it-gguf"
 	$cache_type_k:="q4_0"
 	$cache_type_v:="q4_0"
 	$n_gpu_layers:=99
@@ -193,12 +263,6 @@ models passed in $3 are downloaded if necessary
 	$llama:=cs:C1710.llama.new($port; $huggingfaces; $homeFolder; $options; $event)
 	
 End if 
-
-
-
-
-
-
 
 If (False:C215)
 	
