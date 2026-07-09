@@ -27,8 +27,6 @@ cd llama.cpp
 * `LLAMA_BUILD_SERVER` is `ON` by default
 * Set `LLAMA_BUILD_TESTS` to `OFF`
 * Set path to static OpenSSL lib, include
-* Set `LLAMA_BUILD_UI` to `OFF`
-* Set `LLAMA_USE_PREBUILT_UI` to `OFF`
 * Open Xcode
 
 Build:
