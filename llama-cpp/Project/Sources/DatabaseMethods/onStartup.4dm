@@ -32,10 +32,11 @@ var $n_gpu_layers; $threads; $batches; $ubatch_size; $batch_size; $max_position_
 
 $n_gpu_layers:=99
 
-var $iniFile : 4D:C1709.File
-var $ini : Collection
 
 If (False:C215)
+	
+	var $iniFile : 4D:C1709.File
+	var $ini : Collection
 	
 	$ini:=[]
 	$ini.push("version = 1")
@@ -134,8 +135,8 @@ If (True:C214)
 	
 	$port:=8081
 	
-	$folder:=$homeFolder.folder("gemma-4-E2B")
-	$path:="gemma-4-E2B-it-q4_k_m.gguf"
+	$folder:=$homeFolder.folder("gemma-4")
+	$path:="gemma-4-E4B-it-Q4_K_M.gguf"
 	$mmproj:="mmproj-F16.gguf"
 	$assistant:="gemma-4-E2B-it-assistant-f16.gguf"
 	$URL:="keisuke-miyako/gemma-4-E2B-it-gguf"
@@ -182,12 +183,21 @@ If (True:C214)
 	
 	var $huggingfaces : cs:C1710.event.huggingfaces
 	
+/*
+models passed in $3 are downloaded if necessary
+*/
+	
 	$huggingface:=cs:C1710.event.huggingface.new($folder; $URL; [$path; $assistant; $mmproj])
 	$huggingfaces:=cs:C1710.event.huggingfaces.new([$huggingface])
 	
 	$llama:=cs:C1710.llama.new($port; $huggingfaces; $homeFolder; $options; $event)
 	
 End if 
+
+
+
+
+
 
 
 If (False:C215)
@@ -208,7 +218,6 @@ with: mmproj
 	$min_p:=0.1  // (default: 0.1, 0.0 = disabled)
 	$top_p:=0.9  //(default: 0.9, 1.0 = disabled)
 	$top_k:=40  //top-k sampling (default: 40, 0 = disabled)
-	$n_gpu_layers:=-1  //max. number of layers to store in VRAM (default: -1)
 	$repeat_penalty:=1  //(default: 1.0 = disabled)
 	$flash_attn:="auto"
 	
