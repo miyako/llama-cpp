@@ -30,19 +30,24 @@ Else
 	
 	$port:=8080
 	
-	$folder:=$homeFolder.folder("Bonsai-8B")
-	$path:="Bonsai-8B.gguf"
-	$URL:="prism-ml/Bonsai-8B-gguf"
-	$threads:=6
-	$batches:=1
+	$folder:=$homeFolder.folder("Bonsai")
+	$path:="Ternary-Bonsai-8B-Q2_0.gguf"
+	$URL:="prism-ml/Ternary-Bonsai-8B-gguf"
+	//$path:="Ternary-Bonsai-27B-Q2_0.gguf"
+	//$URL:="prism-ml/Ternary-Bonsai-27B-gguf"
+	$threads:=2
+	$batches:=2
+	$threads_batch:=2
 	$ubatch_size:=512
 	$batch_size:=2048
 	
-	$max_position_embeddings:=8192
+	$max_position_embeddings:=16384
 	$cache_type_k:="f16"
 	$cache_type_v:="f16"
-	$n_gpu_layers:=0
-	
+	$n_gpu_layers:=99
+	$top_k:=20
+	$top_p:=0.95
+	$temp:=0.7
 	$logFile:=$folder.file("llama.log")
 	$folder.create()
 	If (Not:C34($logFile.exists))
@@ -51,21 +56,18 @@ Else
 	
 	$options:={\
 		ctx_size: $max_position_embeddings*$batches; \
-		batch_size: $batch_size; \
+		batch_size: $batch_size*$batches; \
 		ubatch_size: $ubatch_size; \
 		parallel: $batches; \
 		threads: $threads; \
-		threads_batch: $threads; \
-		threads_http: 2; \
+		threads_batch: $threads_batch; \
+		threads_http: $batches+1; \
 		n_gpu_layers: $n_gpu_layers; \
 		cache_type_k: $cache_type_k; \
 		cache_type_v: $cache_type_v; \
-		flash_attn: "on"; \
-		n_predict: -1; \
-		temp: 0.3; \
-		top_k: 40; \
-		top_p: 0.9; \
-		repeat_penalty: 1; \
+		temp: $temp; \
+		top_k: $top_k; \
+		top_p: $top_p; \
 		log_disable: False:C215; \
 		log_file: $logFile; \
 		jinja: True:C214}
