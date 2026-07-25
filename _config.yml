@@ -29,3 +29,4 @@ exclude:
   - "bin/*"
   - "a/*"
   - "package.json"
+  - "prism-ml/*"
