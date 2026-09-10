@@ -57,7 +57,7 @@ Build:
 ~~c.f. https://github.com/ggml-org/llama.cpp/issues/9937~~
 
 ```
-cmake -B build -G "Visual Studio 18 2026" -A x64 ^
+cmake -B build -G "Visual Studio 17 2022" -A x64 ^
  -D OPENSSL_INCLUDE_DIR=C:\Users\miyako\Documents\GitHub\llama-cpp\include ^
  -DOPENSSL_ROOT_DIR=C:\Users\miyako\Documents\GitHub\llama-cpp\lib\x64 ^
  -DLLAMA_BUILD_TESTS=OFF ^
@@ -73,7 +73,7 @@ cmake -B build -G "Visual Studio 18 2026" -A x64 ^
 ARM NEON and fp16 C-intrinsics not supported by MSVC native compiler. Use `Clang` or `ninja`.
 
 ```
-cmake -B build -G "Visual Studio 17 2022" -A ARM64 -T ClangCL ^
+cmake -B build_arm -G "Visual Studio 17 2022" -A ARM64 -T ClangCL ^
  -DCMAKE_SYSTEM_PROCESSOR=ARM64 ^
  -DOPENSSL_INCLUDE_DIR=C:\Users\miyako\Documents\GitHub\llama-cpp\include ^
  -DOPENSSL_ROOT_DIR=C:\Users\miyako\Documents\GitHub\llama-cpp\lib\arm64 ^
@@ -86,5 +86,5 @@ cmake -B build -G "Visual Studio 17 2022" -A ARM64 -T ClangCL ^
 ```
 
 ```
-cmake --build build --config Release
+cmake --build build_arm --config Release
 ```
