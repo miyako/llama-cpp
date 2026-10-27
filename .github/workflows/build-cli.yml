@@ -1,0 +1,380 @@
+name: Build CLI
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Published ggml-org/llama.cpp release tag (for example b9374)
+        required: true
+        type: string
+      mode:
+        description: Component version increment passed to Publish
+        required: true
+        type: choice
+        default: patch
+        options:
+          - patch
+          - minor
+          - major
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-cli
+  cancel-in-progress: false
+
+jobs:
+  source:
+    runs-on: ubuntu-latest
+    outputs:
+      sha: ${{ steps.release.outputs.sha }}
+    steps:
+      - name: Resolve published release
+        id: release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "$GITHUB_REF" != refs/heads/main ]]; then
+            echo "::error::Run Build CLI from main; it replaces the bundled binaries on main."
+            exit 1
+          fi
+          if [[ ! "$RELEASE_TAG" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ ]]; then
+            echo "::error::Enter a release tag, not a branch, URL, or commit."
+            exit 1
+          fi
+          gh api "repos/ggml-org/llama.cpp/releases/tags/$RELEASE_TAG" \
+            --jq 'select(.draft == false) | .tag_name' > release-tag.txt
+          test "$(cat release-tag.txt)" = "$RELEASE_TAG"
+          sha=$(gh api "repos/ggml-org/llama.cpp/commits/$RELEASE_TAG" --jq .sha)
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+          echo "Building ggml-org/llama.cpp $RELEASE_TAG ($sha)" >> "$GITHUB_STEP_SUMMARY"
+
+  macos:
+    needs: source
+    runs-on: macos-15
+    timeout-minutes: 120
+    env:
+      MACOSX_DEPLOYMENT_TARGET: '14.0'
+    steps:
+      - name: Checkout build scripts
+        uses: actions/checkout@v4
+
+      - name: Checkout llama.cpp
+        uses: actions/checkout@v4
+        with:
+          repository: ggml-org/llama.cpp
+          ref: ${{ needs.source.outputs.sha }}
+          path: upstream
+          fetch-depth: 0
+          submodules: recursive
+          persist-credentials: false
+
+      - name: Checkout OpenSSL
+        uses: actions/checkout@v4
+        with:
+          repository: openssl/openssl
+          ref: openssl-3.5.9
+          path: openssl
+          persist-credentials: false
+
+      - name: Build static server slices
+        shell: bash
+        run: |
+          set -euo pipefail
+          for arch in arm64 x86_64; do
+            prefix="$RUNNER_TEMP/openssl-$arch"
+            mkdir -p "$RUNNER_TEMP/openssl-build-$arch"
+            (
+              cd "$RUNNER_TEMP/openssl-build-$arch"
+              "$GITHUB_WORKSPACE/openssl/Configure" "darwin64-$arch-cc" \
+                no-shared no-tests no-module --libdir=lib --prefix="$prefix" \
+                "-mmacosx-version-min=$MACOSX_DEPLOYMENT_TARGET"
+              make -j"$(sysctl -n hw.logicalcpu)"
+              make install_sw
+            )
+            cmake -S upstream -B "build-$arch" -G Xcode \
+              -DCMAKE_SYSTEM_NAME=Darwin \
+              -DCMAKE_SYSTEM_PROCESSOR="$arch" \
+              -DCMAKE_OSX_ARCHITECTURES="$arch" \
+              -DCMAKE_OSX_DEPLOYMENT_TARGET="$MACOSX_DEPLOYMENT_TARGET" \
+              -DBUILD_SHARED_LIBS=OFF \
+              -DGGML_BACKEND_DL=OFF \
+              -DGGML_NATIVE=OFF \
+              -DGGML_OPENMP=OFF \
+              -DGGML_CCACHE=OFF \
+              -DGGML_METAL=ON \
+              -DGGML_METAL_EMBED_LIBRARY=ON \
+              -DLLAMA_BUILD_TESTS=OFF \
+              -DLLAMA_BUILD_EXAMPLES=OFF \
+              -DLLAMA_BUILD_APP=OFF \
+              -DLLAMA_BUILD_SERVER=ON \
+              -DLLAMA_OPENSSL=ON \
+              -DCMAKE_REQUIRE_FIND_PACKAGE_OpenSSL=ON \
+              -DOPENSSL_USE_STATIC_LIBS=TRUE \
+              -DOPENSSL_ROOT_DIR="$prefix" \
+              -DOPENSSL_INCLUDE_DIR="$prefix/include" \
+              -DOPENSSL_SSL_LIBRARY="$prefix/lib/libssl.a" \
+              -DOPENSSL_CRYPTO_LIBRARY="$prefix/lib/libcrypto.a"
+            cmake --build "build-$arch" --config Release --target llama-server \
+              --parallel "$(sysctl -n hw.logicalcpu)"
+            test -f "build-$arch/bin/Release/llama-server"
+          done
+          mkdir -p dist/macOS
+          lipo -create build-arm64/bin/Release/llama-server \
+            build-x86_64/bin/Release/llama-server -output dist/macOS/llama-server
+          lipo dist/macOS/llama-server -verify_arch arm64 x86_64
+          for arch in arm64 x86_64; do
+            dependencies=$(otool -arch "$arch" -L dist/macOS/llama-server | tail -n +2 | awk '{print $1}')
+            while IFS= read -r dependency; do
+              case "$dependency" in
+                /usr/lib/*|/System/Library/*) ;;
+                *) echo "::error::Non-system dependency: $dependency"; exit 1 ;;
+              esac
+            done <<< "$dependencies"
+          done
+          dist/macOS/llama-server --version
+
+      - name: Setup signing keychain
+        id: keychain
+        uses: miyako/4D/.github/actions/deployment-setup-keychain@v1
+        with:
+          APPLE_DEVELOPER_ID_CERTIFICATE: ${{ secrets.APPLE_DEVELOPER_ID_CERTIFICATE }}
+          APPLE_DEVELOPER_ID_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_DEVELOPER_ID_CERTIFICATE_PASSWORD }}
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+
+      - name: Sign and notarize universal server
+        env:
+          SIGNING_IDENTITY: ${{ secrets.CODESIGN_APPLE_ID }}
+          KEYCHAIN_PATH: ${{ steps.keychain.outputs.KEYCHAIN_PATH }}
+          APPLE_ID: ${{ secrets.NOTARYTOOL_APPLE_ID }}
+          TEAM_ID: ${{ secrets.NOTARYTOOL_TEAM_ID }}
+          NOTARY_PASSWORD: ${{ secrets.NOTARYTOOL_PASSWORD }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          codesign --force --options runtime --timestamp \
+            --sign "$SIGNING_IDENTITY" --keychain "$KEYCHAIN_PATH" dist/macOS/llama-server
+          codesign --verify --strict --verbose=2 dist/macOS/llama-server
+          ditto -c -k --keepParent dist/macOS/llama-server "$RUNNER_TEMP/llama-server.zip"
+          xcrun notarytool submit "$RUNNER_TEMP/llama-server.zip" \
+            --apple-id "$APPLE_ID" --team-id "$TEAM_ID" --password "$NOTARY_PASSWORD" \
+            --wait --timeout 30m --output-format json > "$RUNNER_TEMP/notarization.json"
+          cat "$RUNNER_TEMP/notarization.json"
+          submission_id=$(jq -r .id "$RUNNER_TEMP/notarization.json")
+          xcrun notarytool log "$submission_id" \
+            --apple-id "$APPLE_ID" --team-id "$TEAM_ID" --password "$NOTARY_PASSWORD" \
+            "$RUNNER_TEMP/notarization-log.json"
+          test "$(jq -r .status "$RUNNER_TEMP/notarization.json")" = Accepted
+
+      - name: Upload notarization records
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: cli-notarization
+          path: |
+            ${{ runner.temp }}/notarization.json
+            ${{ runner.temp }}/notarization-log.json
+          if-no-files-found: warn
+
+      - name: Upload signed server
+        uses: actions/upload-artifact@v4
+        with:
+          name: cli-macos
+          path: dist/macOS/llama-server
+          if-no-files-found: error
+
+      - name: Remove signing keychain
+        if: ${{ always() && steps.keychain.outputs.KEYCHAIN_PATH != '' }}
+        env:
+          KEYCHAIN_PATH: ${{ steps.keychain.outputs.KEYCHAIN_PATH }}
+          CERTIFICATE_PATH: ${{ steps.keychain.outputs.CERTIFICATE_PATH }}
+        shell: bash
+        run: |
+          security delete-keychain "$KEYCHAIN_PATH"
+          rm -f "$CERTIFICATE_PATH"
+
+  windows:
+    needs: source
+    runs-on: windows-2022
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x64
+            toolset: v143
+            processor: AMD64
+            folder: Windows
+            machine: '8664'
+          - arch: ARM64
+            toolset: ClangCL
+            processor: ARM64
+            folder: WindowsARM
+            machine: AA64
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - name: Checkout static OpenSSL libraries
+        uses: actions/checkout@v4
+
+      - name: Checkout llama.cpp
+        uses: actions/checkout@v4
+        with:
+          repository: ggml-org/llama.cpp
+          ref: ${{ needs.source.outputs.sha }}
+          path: upstream
+          fetch-depth: 0
+          submodules: recursive
+          persist-credentials: false
+
+      - name: Setup Visual Studio tools
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
+      - name: Build static server
+        env:
+          TARGET_ARCH: ${{ matrix.arch }}
+          TOOLSET: ${{ matrix.toolset }}
+          PROCESSOR: ${{ matrix.processor }}
+        run: |
+          $libArch = $env:TARGET_ARCH.ToLowerInvariant()
+          $crossOptions = @()
+          if ($env:TARGET_ARCH -eq 'ARM64') {
+            # UI asset generators must run on the x64 build host, not ARM64.
+            $crossOptions += '-DCMAKE_SYSTEM_NAME=Windows'
+            $hostCompiler = (Get-Command clang++.exe -ErrorAction Stop).Source
+            $crossOptions += "-DHOST_CXX_COMPILER=$hostCompiler"
+          }
+          cmake -S upstream -B build -G "Visual Studio 17 2022" @crossOptions `
+            -A $env:TARGET_ARCH -T $env:TOOLSET `
+            "-DCMAKE_SYSTEM_PROCESSOR=$env:PROCESSOR" `
+            -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded `
+            -DBUILD_SHARED_LIBS=OFF `
+            -DGGML_BACKEND_DL=OFF `
+            -DGGML_NATIVE=OFF `
+            -DGGML_OPENMP=OFF `
+            -DGGML_CCACHE=OFF `
+            -DLLAMA_BUILD_TESTS=OFF `
+            -DLLAMA_BUILD_EXAMPLES=OFF `
+            -DLLAMA_BUILD_APP=OFF `
+            -DLLAMA_BUILD_SERVER=ON `
+            -DLLAMA_OPENSSL=ON `
+            -DCMAKE_REQUIRE_FIND_PACKAGE_OpenSSL=ON `
+            -DOPENSSL_USE_STATIC_LIBS=TRUE `
+            -DOPENSSL_MSVC_STATIC_RT=TRUE `
+            "-DOPENSSL_ROOT_DIR=$env:GITHUB_WORKSPACE/lib/$libArch" `
+            "-DOPENSSL_INCLUDE_DIR=$env:GITHUB_WORKSPACE/include" `
+            "-DOPENSSL_SSL_LIBRARY=$env:GITHUB_WORKSPACE/lib/$libArch/libssl.lib" `
+            "-DOPENSSL_CRYPTO_LIBRARY=$env:GITHUB_WORKSPACE/lib/$libArch/libcrypto.lib"
+          if ($LASTEXITCODE -ne 0) { throw "CMake configure failed" }
+          cmake --build build --config Release --target llama-server --parallel 4
+          if ($LASTEXITCODE -ne 0) { throw "CMake build failed" }
+
+      - name: Verify architecture and system-only dependencies
+        env:
+          MACHINE: ${{ matrix.machine }}
+          TARGET_ARCH: ${{ matrix.arch }}
+          OUTPUT_FOLDER: ${{ matrix.folder }}
+        run: |
+          $binary = "build/bin/Release/llama-server.exe"
+          $headers = dumpbin /headers $binary
+          if ($LASTEXITCODE -ne 0) { throw "Cannot inspect executable headers" }
+          if (-not ($headers -match "$env:MACHINE machine")) { throw "Wrong executable architecture" }
+          $imports = dumpbin /dependents $binary
+          if ($LASTEXITCODE -ne 0) { throw "Cannot inspect executable dependencies" }
+          $imports
+          $dlls = @($imports | ForEach-Object {
+            if ($_ -match '^\s+(\S+\.dll)\s*$') { $Matches[1] }
+          })
+          if ($dlls.Count -eq 0) { throw "No executable imports found" }
+          $systemDlls = '^(KERNEL32|ADVAPI32|WS2_32|CRYPT32|USER32|BCRYPT|NTDLL|SHELL32|OLE32|SECUR32|IPHLPAPI|USERENV)\.dll$'
+          foreach ($dll in $dlls) {
+            if ($dll -notmatch $systemDlls) { throw "Non-system or dynamic runtime dependency: $dll" }
+          }
+          if ($env:TARGET_ARCH -eq 'x64') {
+            & $binary --version
+            if ($LASTEXITCODE -ne 0) { throw "Server smoke test failed" }
+          }
+          New-Item -ItemType Directory -Force "dist/$env:OUTPUT_FOLDER" | Out-Null
+          Copy-Item $binary "dist/$env:OUTPUT_FOLDER/llama-server.exe"
+
+      - name: Upload server
+        uses: actions/upload-artifact@v4
+        with:
+          name: cli-${{ matrix.folder }}
+          path: dist/${{ matrix.folder }}/llama-server.exe
+          if-no-files-found: error
+
+  replace-and-publish:
+    needs: [source, macos, windows]
+    runs-on: macos-15
+    permissions:
+      contents: write
+      actions: write
+    steps:
+      - name: Checkout original main revision
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+
+      - name: Download macOS server
+        uses: actions/download-artifact@v4
+        with:
+          name: cli-macos
+          path: llama-cpp/Resources/bin/macOS
+
+      - name: Download Windows x64 server
+        uses: actions/download-artifact@v4
+        with:
+          name: cli-Windows
+          path: llama-cpp/Resources/bin/Windows
+
+      - name: Download Windows ARM64 server
+        uses: actions/download-artifact@v4
+        with:
+          name: cli-WindowsARM
+          path: llama-cpp/Resources/bin/WindowsARM
+
+      - name: Commit bundled servers
+        env:
+          RELEASE_TAG: ${{ inputs.release_tag }}
+          UPSTREAM_SHA: ${{ needs.source.outputs.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          if [[ "$(git rev-parse origin/main)" != "$GITHUB_SHA" ]]; then
+            echo "::error::main changed during the build. Rerun Build CLI against the new revision."
+            exit 1
+          fi
+          chmod +x llama-cpp/Resources/bin/macOS/llama-server
+          lipo llama-cpp/Resources/bin/macOS/llama-server -verify_arch arm64 x86_64
+          codesign --verify --strict --verbose=2 llama-cpp/Resources/bin/macOS/llama-server
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add llama-cpp/Resources/bin/macOS/llama-server \
+            llama-cpp/Resources/bin/Windows/llama-server.exe \
+            llama-cpp/Resources/bin/WindowsARM/llama-server.exe
+          if ! git diff --cached --quiet; then
+            git commit -m "Update llama-server to $RELEASE_TAG" -m "Upstream: $UPSTREAM_SHA"
+            git push origin HEAD:main
+          fi
+          echo "Bundled llama-server $RELEASE_TAG ($UPSTREAM_SHA)." >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Trigger component publication
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION_MODE: ${{ inputs.mode }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh workflow run publish.yml --repo "$GITHUB_REPOSITORY" --ref main \
+            -f use_self_hosted=false -f "mode=$VERSION_MODE"
+          echo "Dispatched Publish on main ($VERSION_MODE)." >> "$GITHUB_STEP_SUMMARY"
