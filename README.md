@@ -1,7 +1,7 @@
 # llama.cpp
 Local inference engine
 
-**aknowledgements**: [ggml-org/llama.cpp](https://github.com/ggml-org/llama.cpp)
+**acknowledgements**: [ggml-org/llama.cpp](https://github.com/ggml-org/llama.cpp)
 
 #### Abstract
 
@@ -163,7 +163,7 @@ Else
 End if  
 ```
 
-Unless the server is already running (in which case the costructor does nothing), the following procedure runs in the background:
+Unless the server is already running (in which case the constructor does nothing), the following procedure runs in the background:
 
 1. The specified model is downloaded via HTTP
 2. The `llama-server` program is started
@@ -181,7 +181,7 @@ Or, use AI Kit:
 ```4d
 var $AIClient : cs.AIKit.OpenAI
 $AIClient:=cs.AIKit.OpenAI.new()
-$AIClient.baseURL:="http://127.0.0.1:8080/v1"
+$AIClient.baseURL:="http://127.0.0.1:8083/v1"
 
 var $text : Text
 $text:="The quick brown fox jumps over the lazy dog."
@@ -204,7 +204,7 @@ $llama.terminate()
 
 #### AI Kit compatibility
 
-The API is compatibile with the following [Open AI](https://platform.openai.com/docs/api-reference/) endpoints: 
+The API is compatible with the following [Open AI](https://platform.openai.com/docs/api-reference/) endpoints:
 
 |Class|API|Availability|
 |-|-|:-:|
