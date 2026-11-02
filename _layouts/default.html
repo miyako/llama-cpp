@@ -1,55 +1,42 @@
 <!DOCTYPE html>
-<html lang="{{ site.lang | default: "en-US" }}">
+<html lang="{{ site.lang | default: 'en-US' }}">
   <head>
     <meta charset="UTF-8">
-    <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-
-{% seo %}
-    <link rel="stylesheet" href="{{ "/assets/css/style.css?v=" | append: site.github.build_revision | relative_url }}">
-    <!--[if lt IE 9]>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html5shiv/3.7.3/html5shiv.min.js"></script>
-    <![endif]-->
+    <meta name="theme-color" content="#faf9f6">
+    {% seo %}
+    <link rel="icon" type="image/png" href="{{ site.logo | relative_url }}">
     {% include head-custom.html %}
+    <link rel="stylesheet" href="{{ '/assets/css/style.css?v=' | append: site.github.build_revision | relative_url }}">
   </head>
   <body>
-    <div class="wrapper">
-      <header>
-        <h1><a href="{{ "/" | absolute_url }}">{{ site.title | default: site.github.repository_name }}</a></h1>
-
-        {% if site.logo %}
-          <img src="{{site.logo | relative_url}}" alt="Logo" />
-        {% endif %}
-
-        <p>{{ site.description | default: site.github.project_tagline }}</p>
-
-        {% if site.github.is_project_page %}
-        <p class="view"><a href="{{ site.github.repository_url }}">View the Project on GitHub <small>{{ site.github.repository_nwo }}</small></a></p>
-        {% endif %}
-
-        {% if site.github.is_user_page %}
-        <p class="view"><a href="{{ site.github.owner_url }}">View My GitHub Profile</a></p>
-        {% endif %}
-
-        {% if site.show_downloads %}
-        <ul class="downloads">
-          <li><a href="{{ site.github.zip_url }}">Download <strong>ZIP File</strong></a></li>
-          <li><a href="{{ site.github.tar_url }}">Download <strong>TAR Ball</strong></a></li>
-          <li><a href="{{ site.github.repository_url }}">View On <strong>GitHub</strong></a></li>
-        </ul>
-        {% endif %}
-      </header>
-      <section>
-
-      {{ content }}
-
-      </section>
-      <footer>
-        {% if site.github.is_project_page %}
-        <p>This project is maintained by <a href="{{ site.github.owner_url }}">{{ site.github.owner_name }}</a></p>
-        {% endif %}
-        <p><small>Hosted on GitHub Pages &mdash; Theme by <a href="https://github.com/orderedlist">orderedlist</a></small></p>
-      </footer>
+    <a class="skip-link" href="#main">Skip to content</a>
+    <aside class="sidebar">
+      <a class="brand" href="{{ '/' | relative_url }}" aria-label="llama.cpp for 4D home">
+        <img src="{{ site.logo | relative_url }}" width="42" height="42" alt="">
+        <span>llama.cpp<small>for 4D</small></span>
+      </a>
+      <p class="sidebar-caption">Local models.<br>Real applications.</p>
+      <nav aria-label="Documentation">
+        <span class="nav-label">Get started</span>
+        <a href="{{ '/' | relative_url }}"{% if page.home %} aria-current="page"{% endif %}>Overview</a>
+        <a href="{{ '/#requirements' | relative_url }}">Compatibility</a>
+        <a href="{{ '/#quickstart' | relative_url }}">First request</a>
+        <a href="https://github.com/miyako/llama-cpp/releases">Downloads <span aria-hidden="true">&nearr;</span></a>
+        <span class="nav-label">Integrate &amp; build</span>
+        <a href="{{ '/guide.html' | relative_url }}"{% if page.name == 'guide.md' %} aria-current="page"{% endif %}>Use with 4D</a>
+        <a href="{{ '/guide.html#router-mode' | relative_url }}">Multi-model router</a>
+        <a href="{{ '/#api' | relative_url }}">API compatibility</a>
+        <a href="{{ '/cli-build.html' | relative_url }}"{% if page.name == 'cli-build.md' %} aria-current="page"{% endif %}>Native builds</a>
+      </nav>
+      <div class="sidebar-bottom"><span>macOS &amp; Windows</span><a href="https://github.com/ggml-org/llama.cpp">Powered by llama.cpp &nearr;</a></div>
+    </aside>
+    <div class="workspace">
+      <header class="topbar"><span>Documentation <span aria-hidden="true">/</span> <strong>{% if page.home %}Overview{% else %}{{ page.title }}{% endif %}</strong></span><a href="{{ site.github.repository_url }}">GitHub <span aria-hidden="true">&nearr;</span></a></header>
+      <main id="main" class="{% if page.home %}home{% else %}prose{% endif %}" tabindex="-1">
+        {{ content }}
+      </main>
+      <footer class="site-footer"><span>llama.cpp for 4D <span aria-hidden="true">&middot;</span> By <a href="{{ site.github.owner_url }}">miyako</a></span><span><a href="https://github.com/miyako/llama-cpp/blob/main/LICENSE">MIT license</a><a href="{{ site.github.repository_url }}">Source code &nearr;</a></span></footer>
     </div>
     {% include footer-custom.html %}
   </body>

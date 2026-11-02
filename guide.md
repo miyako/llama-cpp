@@ -1,21 +1,23 @@
 ---
 layout: default
+title: Integration guide
+description: Model downloads, server options, router mode, and AI Kit integration for the llama.cpp 4D component.
 ---
 
 ![version](https://img.shields.io/badge/version-20%2B-E23089)
 ![platform](https://img.shields.io/static/v1?label=platform&message=mac-intel%20|%20mac-arm%20|%20win-64&color=blue)
-[![license](https://img.shields.io/github/license/miyako/llama-cpp)](LICENSE)
+[![license](https://img.shields.io/github/license/miyako/llama-cpp)](https://github.com/miyako/llama-cpp/blob/main/LICENSE)
 ![downloads](https://img.shields.io/github/downloads/miyako/llama-cpp/total)
 
-# Use llama.cpp from 4D
+# Integration guide
 
-#### Abstract
+Use the `llama` component to manage a local `llama-server` process from 4D. For platform details and a first HTTP request, see the [overview]({{ '/' | relative_url }}).
 
-[**llama.cpp**](https://github.com/ggml-org/llama.cpp) is an open-source project that allows you to run Meta's LLaMA language models locally on CPUs without heavy frameworks like PyTorch or TensorFlow. Essentially, it’s a **lightweight C++ implementation optimized for inference**.
+Download a component from [Releases](https://github.com/miyako/llama-cpp/releases), install it in your project's `Components` folder, and install the dependencies declared in the component's [`dependencies.json`](https://github.com/miyako/llama-cpp/blob/main/llama-cpp/Project/Sources/dependencies.json). The examples below use the `event` component for model downloads and callbacks.
 
-#### New!
+## Router mode
 
-Router mode is now supported
+Configure multiple models in a preset file. Create the containing folder before writing the preset:
 
 ```4d
 $n_gpu_layers:=99
@@ -40,6 +42,7 @@ $ini.push("pooling = last")
 
 $port:=8888
 $folder:=$homeFolder.folder("llama-"+String($port))
+$folder.create()
 
 $iniFile:=$folder.file("models.ini")
 $iniFile.setText($ini.join("\n"))
@@ -75,7 +78,7 @@ n_gpu_layers: $n_gpu_layers}
 $llama:=cs.llama.llama.new($port; Null; $homeFolder; $options; $event)
 ```
 
-#### Usage
+## Usage
 
 Instantiate `cs.llama.llama` in your *On Startup* database method:
 
@@ -204,11 +207,11 @@ $llama:=cs.llama.llama.new()
 $llama.terminate()
 ```
 
-#### Vision
+## Vision
 
 `llama-server` supports OCR if you use a model converted to .gguf. `Q4_K_M` is generally considered a best level of quantisation for OCR. However, `llama-server` does not support the `/v1/files` API so you need to reference the image via a data URI in your chat completion request.
 
-#### AI Kit compatibility
+## AI Kit compatibility
 
 The API is compatible with the following [Open AI](https://platform.openai.com/docs/api-reference/) endpoints:
 
