@@ -1,6 +1,8 @@
 # llama.cpp
 Local inference engine
 
+**[Project website](https://miyako.github.io/llama-cpp/)** · [Integration guide](https://miyako.github.io/llama-cpp/guide.html) · [Native builds](https://miyako.github.io/llama-cpp/cli-build.html) · [Downloads](https://github.com/miyako/llama-cpp/releases)
+
 **acknowledgements**: [ggml-org/llama.cpp](https://github.com/ggml-org/llama.cpp)
 
 #### Abstract

@@ -1,6 +1,12 @@
+---
+layout: default
+title: Native builds
+description: Build and release the native llama-server executables for macOS and Windows.
+---
+
 ![version](https://img.shields.io/badge/version-20%2B-E23089)
 ![platform](https://img.shields.io/static/v1?label=platform&message=mac-intel%20|%20mac-arm%20|%20win-64&color=blue)
-[![license](https://img.shields.io/github/license/miyako/llama-cpp)](LICENSE)
+[![license](https://img.shields.io/github/license/miyako/llama-cpp)](https://github.com/miyako/llama-cpp/blob/main/LICENSE)
 ![downloads](https://img.shields.io/github/downloads/miyako/llama-cpp/total)
 
 # llama.cpp
@@ -8,7 +14,7 @@ Local inference engine
 
 **aknowledgements**: [ggml-org/llama.cpp](https://github.com/ggml-org/llama.cpp)
 
-See [`index.md`](index.md) for component information.
+See the [integration guide]({{ '/guide.html' | relative_url }}) for component information.
 
 The CLI targets four architectures (the original manual builds used `b9374`):
 
