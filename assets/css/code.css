@@ -13,7 +13,7 @@
   font-weight: bold;
 }
 .highlight .c, .highlight .ch, .highlight .cd, .highlight .cm, .highlight .cpf, .highlight .c1, .highlight .cs {
-  color: #6c8b9f;
+  color: #9fb3c1;
   font-style: italic;
 }
 .highlight .cp {
@@ -25,7 +25,7 @@
   background-color: #cc0000;
 }
 .highlight .gr {
-  color: #cc0000;
+  color: #ff9a9a;
   font-weight: bold;
   font-style: italic;
 }
@@ -41,7 +41,7 @@
   color: #4df4ff;
 }
 .highlight .gd {
-  color: #cc0000;
+  color: #ff9a9a;
 }
 .highlight .gi {
   color: #b2fd6d;

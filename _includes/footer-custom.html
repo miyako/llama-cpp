@@ -1,5 +1,13 @@
 <script>
 document.addEventListener("DOMContentLoaded", () => {
+  document.querySelectorAll("main table").forEach((table) => {
+    if (table.parentElement.classList.contains("table-wrap")) return;
+    const wrapper = document.createElement("div");
+    wrapper.className = "table-wrap";
+    table.before(wrapper);
+    wrapper.appendChild(table);
+  });
+
   document.querySelectorAll("pre > code").forEach((codeBlock) => {
     const pre = codeBlock.parentNode;
     const wrapper = document.createElement("div");
@@ -19,18 +27,30 @@ document.addEventListener("DOMContentLoaded", () => {
       Copy
     `;
     wrapper.appendChild(button);
+    const status = document.createElement("span");
+    status.className = "copy-status";
+    status.setAttribute("role", "status");
+    wrapper.appendChild(status);
+    let feedbackTimeout;
 
     // Copy behavior
     button.addEventListener("click", async () => {
+      clearTimeout(feedbackTimeout);
+      status.textContent = "";
+      button.classList.remove("show-tooltip");
       try {
         await navigator.clipboard.writeText(codeBlock.innerText);
+        status.textContent = "Copied!";
         button.classList.add("show-tooltip");
-        setTimeout(() => button.classList.remove("show-tooltip"), 1200);
+        feedbackTimeout = setTimeout(() => {
+          button.classList.remove("show-tooltip");
+          status.textContent = "";
+        }, 1200);
       } catch (err) {
         console.error("Copy failed:", err);
+        status.textContent = "Copy failed. Select the code and copy it manually.";
       }
     });
   });
 });
 </script>
-
