@@ -18,6 +18,7 @@ github:
   is_project_page: false
 
 exclude:
+  - "SITE-DESIGN.md"
   - "vendor"
   - "resources"
   - "LICENSE"

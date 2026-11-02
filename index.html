@@ -7,7 +7,7 @@ home: true
 <section class="hero" aria-labelledby="hero-title">
   <div class="hero-copy">
     <p class="eyebrow"><span class="status-dot" aria-hidden="true"></span> Local inference / 4D integration</p>
-    <h1 id="hero-title">The standard<br><span>for local inference.</span></h1>
+    <h1 id="hero-title">The standard <span>for local inference.</span></h1>
     <p class="lede">Bring the power of llama.cpp into your application. Run GGUF models locally, serve chat and embeddings over HTTP, and let 4D manage the process.</p>
     <div class="actions">
       <a class="button primary" href="#quickstart">Make your first request <span aria-hidden="true">&rarr;</span></a>
@@ -15,15 +15,16 @@ home: true
     </div>
     <p class="hero-note">macOS &amp; Windows <span aria-hidden="true">&middot;</span> Open source <span aria-hidden="true">&middot;</span> No hosted inference required</p>
   </div>
-  <div class="engine-panel" aria-label="4D connects over local HTTP to llama-server, which runs a GGUF model on your machine">
+  <div class="engine-panel" role="group" aria-label="4D connects over local HTTP to llama-server, which runs a GGUF model on your machine">
     <div class="panel-top"><span class="panel-label">The local stack</span><span class="local-tag">On your machine</span></div>
     <div class="app-node"><span class="node-symbol" aria-hidden="true">4D</span><div><strong>Your application</strong><span>AI Kit or your own HTTP client</span></div></div>
-    <div class="connection"><span>HTTP / 127.0.0.1</span></div>
+    <div class="connection"><span>HTTP / 127.0.0.1:8080</span></div>
     <div class="engine-node">
-      <img src="{{ site.logo | relative_url }}" width="72" height="72" alt="">
+      <img src="{{ site.logo | relative_url }}" width="52" height="52" alt="">
       <div><strong>llama.cpp</strong><span>Local inference engine</span></div>
       <span class="engine-badge">SERVER</span>
     </div>
+    <div class="connection"><span>loads</span></div>
     <div class="model-node"><span class="file-mark" aria-hidden="true">.gguf</span><div><strong>A model you choose</strong><span>Chat &middot; Embeddings &middot; Vision</span></div></div>
     <div class="panel-bottom"><span class="status-dot" aria-hidden="true"></span> One server. An API your app can use.</div>
   </div>
