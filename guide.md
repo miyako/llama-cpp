@@ -15,6 +15,20 @@ Use the `llama` component to manage a local `llama-server` process from 4D. For 
 
 Download a component from [Releases](https://github.com/miyako/llama-cpp/releases), install it in your project's `Components` folder, and install the dependencies declared in the component's [`dependencies.json`](https://github.com/miyako/llama-cpp/blob/main/llama-cpp/Project/Sources/dependencies.json). The examples below use the `event` component for model downloads and callbacks.
 
+## Managed download integrity
+
+The source component also requires the separate [`miyako/hash`](https://github.com/miyako/hash) component, pinned to **20.0.1** rather than `latest`. Install that component alongside the other dependencies; do not copy its CLI into the llama component. The hash component owns its native resources and process handling. Previously published llama component archives are not retroactively changed by this source update.
+
+The reviewed component ZIP and source revision are recorded in [`dependencies.lock.json`](https://github.com/miyako/llama-cpp/blob/main/dependencies.lock.json). This is verification evidence, not an automatic checksum feature of 4D's Dependency Manager. Verify the archive SHA-256 before manual installation or use the regression runner's `--hash-archive` option. On macOS, the release also provides a Developer ID-signed, notarized, stapled DMG; the ZIP's native payloads are signed and notarized, but ZIPs and raw binaries cannot themselves be stapled.
+
+For managed Hugging Face downloads with a valid `lfs.oid` SHA-256, both existing cached files and newly transferred files must match the provider digest before server launch. A same-size corrupt file is not a cache hit. Verification performs an extra complete read of each file on each managed attempt; the streaming helper avoids a whole-model 4D Blob allocation and has a default per-file deadline of 300 seconds.
+
+On a mismatch or hash-helper error, `event.onError` receives `(options; error)` with the model as `This`. Integrity errors use code `3`, with `file`, `expectedDigest`, `actualDigest`, and diagnostic `details`. The attempt stays blocked: no automatic delete, redownload, or metadata refresh occurs. Inspect the reported destination and provider revision, repair it explicitly, then create a new wrapper attempt. Hugging Face `main` can move between metadata lookup and transfer; a mismatch is not silently retried against changed metadata.
+
+Missing/malformed supported digest metadata preserves the legacy size-based path as **unverified**. Offline/local starts and router configurations without managed metadata remain unverified; this is not authentication of arbitrary local/router files. Git `oid` and `xetHash` are not treated as payload SHA-256.
+
+Download `onResponse` still means **HTTP transfer completion**, before integrity verification. `onSuccess` still means **server launch requested**, not readiness or successful inference. Callback receivers/argument order and intentional quiet native stdout/stderr defaults are unchanged. This work does not cancel other transfers already in flight.
+
 ## Router mode
 
 Configure multiple models in a preset file. Create the containing folder before writing the preset:

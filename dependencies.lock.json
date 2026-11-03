@@ -1,0 +1,31 @@
+{
+  "schemaVersion": 1,
+  "description": "Reviewed hash dependency evidence. Not an automatic 4D Dependency Manager checksum lock.",
+  "hash": {
+    "github": "miyako/hash",
+    "version": "20.0.1",
+    "tag": "20.0.1",
+    "sourceRevision": "c0fc53089bea0746434585c152b4448db88512a0",
+    "artifact": {
+      "name": "hash.zip",
+      "url": "https://github.com/miyako/hash/releases/download/20.0.1/hash.zip",
+      "sha256": "7fe55bf2f552e7c6441cff5079bad5c9f2513cf694563d8b2c4f76ba8a7d71d5"
+    },
+    "verification": {
+      "workflow": "https://github.com/miyako/hash/actions/runs/41659485571",
+      "provenance": "https://github.com/miyako/hash/releases/download/20.0.1/provenance.json",
+      "provenanceSha256": "3620ee6cb2bd09fad4f985f98c44b43e28cc8237d39edfad2f218afd6e266f15",
+      "developerIDTeam": "Y69CWUC25B",
+      "notarizedMacOSPayloads": [
+        "hash.4dbase/Libraries/lib4d-arm64.dylib",
+        "hash.4dbase/Resources/bin/macOS/hash",
+        "standalone macOS CLI"
+      ],
+      "nativeTargets": ["macOS arm64", "macOS x86_64", "Windows x64", "Windows ARM64"],
+      "tested4DEngine": "20.8 build 20.102083",
+      "declared4DCompatibility": 2007,
+      "exact20_7Tested": false,
+      "windows4DRuntimeTested": false
+    }
+  }
+}

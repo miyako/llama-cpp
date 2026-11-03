@@ -4,3 +4,7 @@ llama-cpp/Data/*
 llama-cpp/Libraries/lib4d-arm64.dylib
 bin/*
 b9934/*
+/tools/4dlang/
+/tools/4dlsp/
+/.build/
+__pycache__/

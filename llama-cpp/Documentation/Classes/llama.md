@@ -16,6 +16,8 @@
 
 If a server is already running on the specified `port`, the constructor exits immediately without starting a new one.
 
+For managed downloads with a supported provider SHA-256, cached and fresh files are checked through the separate `hash` component before launch. Integrity failure calls `event.onError` with code `3` and leaves the destination unchanged; there is no automatic deletion or retry. Offline/local paths and router files without managed metadata remain explicitly unverified. See [`_models`](_models.md) for the gate and diagnostic fields. `onSuccess` retains its launch-request meaning, not server readiness.
+
 Parameter defaults applied by the constructor:
 
 - `port`: defaults to `8080` if `0`, negative, or greater than `65535`

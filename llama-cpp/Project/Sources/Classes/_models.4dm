@@ -5,6 +5,9 @@ property options : Object
 property event : cs:C1710.event.event
 property _onResponse : 4D:C1709.Function
 property offline : Boolean
+property integrity : Object
+property _downloadsStarted : Boolean
+property _downloadsComplete : Boolean
 
 Class constructor($port : Integer; $huggingfaces : cs:C1710.event.huggingfaces; $options : Object; $formula : 4D:C1709.Function; $event : cs:C1710.event.event)
 	
@@ -17,6 +20,9 @@ Class constructor($port : Integer; $huggingfaces : cs:C1710.event.huggingfaces; 
 	This:C1470.options.onStdOut:=This:C1470.event.onStdOut
 	This:C1470.options.port:=$port
 	This:C1470.offline:=False:C215
+	This:C1470.integrity:={status: "unverified"; failed: False:C215; results: []}
+	This:C1470._downloadsStarted:=False:C215
+	This:C1470._downloadsComplete:=False:C215
 	
 	This:C1470.files:=[]
 	This:C1470._models:=[]
@@ -70,6 +76,7 @@ Class constructor($port : Integer; $huggingfaces : cs:C1710.event.huggingfaces; 
 							size: $1.value.size; \
 							path: $1.value.path; \
 							oid: $1.value.oid; \
+							lfs: $1.value.lfs; \
 							folder: $5}); $USER; $REPO; $BRANCH; $huggingface.folder; $huggingface.domain; $huggingface.name)
 						
 						For each ($file; $resources.query("type == :1 and path in :2"; "file"; $huggingface.paths))
@@ -120,13 +127,34 @@ Class constructor($port : Integer; $huggingfaces : cs:C1710.event.huggingfaces; 
 	
 Function download()
 	
-	For each ($file; This:C1470.files)
-		If ($file.folder.exists)\
-			 && (OB Instance of:C1731($file.folder; 4D:C1709.Folder) ? ($file.folder.file($file.path).exists) : ($file.folder.exists))\
-			 && (OB Instance of:C1731($file.folder; 4D:C1709.Folder) ? ($file.folder.file($file.path).size=$file.size) : ($file.folder.size=$file.size))
-			This:C1470.onDownload($file.oid)
-			continue
-		End if 
+	If (This:C1470._downloadsStarted)
+		LOG EVENT:C667(Into 4D debug message; "llama: ignored repeated download dispatch")
+		return
+	End if
+	This:C1470._downloadsStarted:=True:C214
+	var $pending : Collection
+	$pending:=This:C1470.files
+	var $file : Object
+	For each ($file; $pending)
+		$file.downloadId:=Generate UUID:C1066
+	End for each
+
+	For each ($file; $pending)
+		If (This:C1470.integrity.failed)
+			break
+		End if
+		var $destination : 4D:C1709.File
+		$destination:=OB Instance of:C1731($file.folder; 4D:C1709.Folder) ? $file.folder.file($file.path) : $file.folder
+		If ($destination.exists)
+			If (This:C1470._expectedDigest($file)#"") || ($destination.size=$file.size)
+				This:C1470.onDownload($file.oid; $file.downloadId)
+				continue
+			End if
+		End if
+		var $owner : Object
+		var $downloadId : Text
+		$owner:=This:C1470
+		$downloadId:=$file.downloadId
 		cs:C1710.event.download.new(\
 			This:C1470; \
 			OB Instance of:C1731($file.folder; 4D:C1709.Folder) ? $file.folder.file($file.path) : $file.folder; \
@@ -135,17 +163,146 @@ Function download()
 			["https://huggingface.co"; $file.USER; $file.REPO; "resolve"; $file.BRANCH; $file.path].join("/"); \
 			This:C1470.options; \
 			This:C1470._onResponse; \
-			This:C1470.event; This:C1470.onDownload).head()
+			This:C1470.event; Formula:C1597($owner.onDownload($1; $downloadId))).head()
 	End for each 
 	
-Function onDownload($oid : Text)
+Function onDownload($oid : Text; $downloadId : Text)
 	
-	This:C1470.files:=This:C1470.files.filter(Formula:C1597($1.value.oid#$2); $oid)
+	var $matches : Collection
+	If ($downloadId#"")
+		$matches:=This:C1470.files.query("oid == :1 and downloadId == :2"; $oid; $downloadId)
+	Else
+		$matches:=This:C1470.files.query("oid == :1"; $oid)
+	End if
+	If ($matches.length=0)
+		LOG EVENT:C667(Into 4D debug message; "llama: ignored unknown or completed download")
+	End if
+	var $file : Object
+	For each ($file; $matches)
+		This:C1470._onFileDownload($file.downloadId)
+	End for each
+
+Function _onFileDownload($downloadId : Text)
+
+	If (This:C1470.integrity.failed) || (This:C1470._downloadsComplete)
+		return
+	End if
+	var $record : Object
+	$record:=This:C1470.files.query("downloadId == :1"; $downloadId).first()
+	If ($record=Null:C1517)
+		LOG EVENT:C667(Into 4D debug message; "llama: ignored unknown or completed download")
+		return
+	End if
+	If ($record.verifying=True:C214)
+		return
+	End if
+	$record.verifying:=True:C214
+	If (Not:C34(This:C1470._verifyFile($record)))
+		return
+	End if
+	// Hashing can yield to other completions while the native worker runs.
+	If (This:C1470.integrity.failed) || (This:C1470._downloadsComplete)
+		return
+	End if
+	If (This:C1470.files.query("downloadId == :1"; $downloadId).length=0)
+		return
+	End if
+	This:C1470.files:=This:C1470.files.filter(Formula:C1597($1.value.downloadId#$2); $downloadId)
 	
 	If (This:C1470.files.length=0)
+		This:C1470._downloadsComplete:=True:C214
+		This:C1470.integrity.status:=This:C1470.integrity.results.every(Formula:C1597($1.value.status="verified")) ? "verified" : "unverified"
 		This:C1470.start()
 	End if 
+
+Function _verifyFile($record : Object) : Boolean
+
+	var $file : 4D:C1709.File
+	$file:=OB Instance of:C1731($record.folder; 4D:C1709.Folder) ? $record.folder.file($record.path) : $record.folder
+	var $expected : Text
+	$expected:=This:C1470._expectedDigest($record)
+	If ($expected="")
+		This:C1470.integrity.results.push({path: $file.path; status: "unverified"; reason: "No supported provider SHA-256"})
+		LOG EVENT:C667(Into 4D debug message; "llama: unverified file (no supported provider SHA-256): "+$file.path)
+		return True:C214
+	End if
 	
+	var $result : Object
+	$result:=This:C1470._hash($file)
+	If ($result=Null:C1517)
+		This:C1470._integrityError($file; $expected; ""; "Hash component returned no result"; {})
+		return False:C215
+	End if
+	If (Value type:C1509($result.success)#Is Boolean)
+		This:C1470._integrityError($file; $expected; ""; "Hash component returned an invalid success flag"; $result)
+		return False:C215
+	End if
+	If (Not:C34($result.success))
+		var $message : Text
+		$message:="SHA-256 verification failed"
+		If (Value type:C1509($result.message)=Is text:K8:3)
+			If ($result.message#"")
+				$message+=": "+$result.message
+			End if
+		End if
+		This:C1470._integrityError($file; $expected; ""; $message; $result)
+		return False:C215
+	End if
+	If (Value type:C1509($result.digest)#Is text:K8:3)
+		This:C1470._integrityError($file; $expected; ""; "Hash component returned a non-text digest"; $result)
+		return False:C215
+	End if
+	If (Not:C34(Match regex:C1019("^[0-9a-fA-F]{64}$"; $result.digest)))
+		This:C1470._integrityError($file; $expected; ""; "Hash component returned an invalid SHA-256 digest"; $result)
+		return False:C215
+	End if
+	var $actual : Text
+	$actual:=Lowercase($result.digest)
+	If ($actual#$expected)
+		This:C1470._integrityError($file; $expected; $actual; "SHA-256 mismatch"; $result)
+		return False:C215
+	End if
+	This:C1470.integrity.results.push({path: $file.path; status: "verified"; expected: $expected; actual: $actual})
+	return True:C214
+
+Function _expectedDigest($record : Object) : Text
+
+	If (Value type:C1509($record.lfs)=Is object:K8:27)
+		If (Value type:C1509($record.lfs.oid)=Is text:K8:3)
+			If (Match regex:C1019("^[0-9a-fA-F]{64}$"; $record.lfs.oid))
+				return Lowercase($record.lfs.oid)
+			End if
+		End if
+	End if
+	return ""
+
+Function _hash($file : 4D:C1709.File) : Object
+
+	return cs:C1710.hash.hash.new().sha256($file)
+
+Function _integrityError($file : 4D:C1709.File; $expected : Text; $actual : Text; $message : Text; $details : Object)
+
+	If (This:C1470.integrity.failed)
+		return
+	End if
+	This:C1470.integrity.failed:=True:C214
+	This:C1470.integrity.status:="failed"
+	var $error : Object
+	$error:=cs:C1710.event.error.new(3; $message+": "+$file.path; cs:C1710.event.models.new())
+	$error.file:=$file.path
+	$error.expectedDigest:=$expected
+	$error.actualDigest:=$actual
+	$error.details:=$details
+	This:C1470.integrity.error:=$error
+	LOG EVENT:C667(Into 4D debug message; "llama: "+$error.message)
+	If (This:C1470.event#Null:C1517)
+		If (Value type:C1509(This:C1470.event.onError)=Is object:K8:27)
+			If (OB Instance of:C1731(This:C1470.event.onError; 4D:C1709.Function))
+				This:C1470.event.onError.call(This:C1470; This:C1470.options; $error)
+			End if
+		End if
+	End if
+
 Function models() : cs:C1710.event.models
 	//virtual
 	return cs:C1710.event.models.new()
