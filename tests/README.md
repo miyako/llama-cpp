@@ -1,5 +1,7 @@
 # Download-integrity regressions
 
+The separate [controller lifecycle characterization](controller/README.md) preserves the terminal-event investigation and its dedicated read-only workflow; it does not change or claim to fix production cleanup.
+
 `scripts/test-download-integrity.py` uses only Python 3.9+'s standard library and an explicitly selected installed tool4d. It copies the production `_models`/`_Model` classes into a fresh `.build/integrity-*` fixture. It never runs the demo startup, fetches models, launches llama-server, resolves moving component dependencies, or touches a shared cache. Only tiny ASCII files in the fixture's resources are changed. Each engine invocation has a 120-second limit; reports, stdout/stderr, exit status, and the last assertion checkpoint are retained.
 
 ```sh

@@ -1,0 +1,79 @@
+name: Controller lifecycle characterization
+
+on:
+  pull_request:
+    paths:
+      - 'llama-cpp/Project/Sources/Classes/_CLI_Controller.4dm'
+      - 'scripts/test-controller-lifecycle.py'
+      - 'scripts/test-download-integrity.py'
+      - 'tests/controller/**'
+      - 'tests/compiler/**'
+      - 'tests/test_controller_lifecycle_tools.py'
+      - '.github/workflows/test-controller-lifecycle.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'llama-cpp/Project/Sources/Classes/_CLI_Controller.4dm'
+      - 'scripts/test-controller-lifecycle.py'
+      - 'scripts/test-download-integrity.py'
+      - 'tests/controller/**'
+      - 'tests/compiler/**'
+      - 'tests/test_controller_lifecycle_tools.py'
+      - '.github/workflows/test-controller-lifecycle.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: controller-characterization-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  characterize:
+    runs-on: macos-15
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Test strict evidence gates
+        run: python3 -m unittest discover -s tests -p 'test_controller_lifecycle_tools.py'
+      - name: Provision checksum-pinned 20.8 engine
+        run: |
+          set -euo pipefail
+          test "$(uname -m)" = arm64
+          mkdir -p .build/tool-downloads .build/tool4d
+          curl -fL --retry 2 --max-time 120 \
+            https://resources-download.4d.com/release/20.x/20.8/latest/mac/tool4d_arm64.tar.xz \
+            -o .build/tool-downloads/tool4d.tar.xz
+          echo 'da9c977dd85d4ee506a5d0c115f17d9f27ea487f402f0d642f4f2e1b186b560d  .build/tool-downloads/tool4d.tar.xz' | shasum -a 256 -c -
+          tar -xJf .build/tool-downloads/tool4d.tar.xz -C .build/tool4d
+          codesign --verify --strict .build/tool4d/tool4d.app
+          .build/tool4d/tool4d.app/Contents/MacOS/tool4d --version
+      - name: Characterize unchanged controller, not a cleanup fix
+        run: |
+          python3 scripts/test-controller-lifecycle.py \
+            --tool4d "$PWD/.build/tool4d/tool4d.app/Contents/MacOS/tool4d"
+      - name: Label investigation outcome
+        if: always()
+        run: |
+          {
+            echo '## Investigation only — Refs #18'
+            echo 'recoveryFixed=false. No production cleanup fix or queue-error policy change.'
+            echo 'Passing characterization observes known synthetic stranding/very-late termination candidates; it does not fix them.'
+            echo 'Accepted native error-without-response remains unestablished. Missing-executable POSX2 is synchronous rejection.'
+            echo 'Read retained reports and engine exits; a failed check is not a successful characterization.'
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Preserve compiler, execution and candidate evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: controller-characterization-evidence
+          path: |
+            .build/controller-*/*.json
+            .build/controller-*/*.log
+            .build/controller-*/engine-version.txt
+          include-hidden-files: true
+          if-no-files-found: warn
