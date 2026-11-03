@@ -5,6 +5,10 @@ Local inference engine
 
 **acknowledgements**: [ggml-org/llama.cpp](https://github.com/ggml-org/llama.cpp)
 
+#### Managed download integrity (source update)
+
+The source wrapper requires the separate [hash 20.0.1 component](https://github.com/miyako/hash/releases/tag/20.0.1). Managed files with a supported provider SHA-256 are verified before launch, including existing cache entries. A mismatch blocks the attempt without deleting or redownloading the file; legacy/offline paths without supported metadata remain explicitly unverified. See the [integrity policy](guide.md#managed-download-integrity) and [offline regressions](tests/README.md). Previously published llama component archives are unchanged.
+
 #### Abstract
 
 [**llama.cpp**](https://github.com/ggml-org/llama.cpp) is an open-source project that allows you to run Meta's LLaMA language models locally on CPUs without heavy frameworks like PyTorch or TensorFlow. Essentially, it’s a **lightweight C++ implementation optimized for inference**.

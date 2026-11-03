@@ -28,11 +28,15 @@ Function models() : cs:C1710.event.models
 	var $models : cs:C1710.event.models
 	return cs:C1710.event.models.new([$model])
 	
-Function onDownload($oid : Text)
+Function onDownload($oid : Text; $downloadId : Text)
 	
 	If (This:C1470.options.model=Null:C1517)
-		var $downloaded : cs:C1710.event.huggingface
-		$downloaded:=This:C1470.files.query("oid == :1"; $oid).first()
+		var $downloaded : Object
+		If ($downloadId#"")
+			$downloaded:=This:C1470.files.query("oid == :1 and downloadId == :2"; $oid; $downloadId).first()
+		Else
+			$downloaded:=This:C1470.files.query("oid == :1"; $oid).first()
+		End if
 		If ($downloaded#Null:C1517)
 			var $model : Object
 			$model:=OB Instance of:C1731($downloaded.folder; 4D:C1709.Folder)\
@@ -66,10 +70,25 @@ Function onDownload($oid : Text)
 		End if 
 	End if 
 	
-	Super:C1706.onDownload($oid)
-	
+	Super:C1706.onDownload($oid; $downloadId)
+
 Function start()
 	
+	If (This:C1470.integrity.failed)
+		return
+	End if
+	If (Not:C34(This:C1470.offline))
+		var $pending : Object
+		For each ($pending; This:C1470.files)
+			If (This:C1470._expectedDigest($pending)#"")
+				LOG EVENT:C667(Into 4D debug message; "llama: start deferred pending SHA-256 verification")
+				return
+			End if
+		End for each
+	End if
+	If (This:C1470.integrity.status#"verified")
+		LOG EVENT:C667(Into 4D debug message; "llama: starting with unverified model files (legacy, offline or router configuration)")
+	End if
 	var $llama : cs:C1710.workers.worker
 	$llama:=cs:C1710.workers.worker.new(cs:C1710._server)
 	$llama.start(This:C1470.options.port; This:C1470.options)

@@ -1,0 +1,67 @@
+name: Download integrity
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: integrity-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  consumer:
+    runs-on: macos-15
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Test archive verification
+        run: python3 -m unittest discover -s tests -p 'test_*.py'
+      - name: Provision checksum-pinned 20.8 engine
+        run: |
+          set -euo pipefail
+          test "$(uname -m)" = arm64
+          mkdir -p .build/tool-downloads .build/tool4d
+          curl -fL --retry 2 --max-time 120 \
+            https://resources-download.4d.com/release/20.x/20.8/latest/mac/tool4d_arm64.tar.xz \
+            -o .build/tool-downloads/tool4d.tar.xz
+          echo 'da9c977dd85d4ee506a5d0c115f17d9f27ea487f402f0d642f4f2e1b186b560d  .build/tool-downloads/tool4d.tar.xz' | shasum -a 256 -c -
+          tar -xJf .build/tool-downloads/tool4d.tar.xz -C .build/tool4d
+          codesign --verify --strict .build/tool4d/tool4d.app
+          .build/tool4d/tool4d.app/Contents/MacOS/tool4d --version
+      - name: Download exact reviewed hash release
+        run: |
+          curl -fL --retry 2 --max-time 120 \
+            https://github.com/miyako/hash/releases/download/20.0.1/hash.zip \
+            -o .build/hash.zip
+      - name: Reproduce baseline and verify compiled consumer
+        run: |
+          python3 scripts/test-download-integrity.py \
+            --tool4d "$PWD/.build/tool4d/tool4d.app/Contents/MacOS/tool4d" --baseline
+          python3 scripts/test-download-integrity.py \
+            --tool4d "$PWD/.build/tool4d/tool4d.app/Contents/MacOS/tool4d" \
+            --compile --hash-archive .build/hash.zip
+      - name: Preserve bounded regression evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: download-integrity-evidence
+          path: |
+            .build/integrity-*/result.json
+            .build/integrity-*/*-compile.json
+            .build/integrity-*/*-exit.txt
+            .build/integrity-*/exit-status.txt
+            .build/integrity-*/*.log
+            .build/integrity-*/hash-artifact.json
+            .build/integrity-*/invocation.json
+          include-hidden-files: true
+          if-no-files-found: warn

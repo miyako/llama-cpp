@@ -13,7 +13,7 @@
 
 ## Description
 
-`_models` is the download-and-startup orchestrator. On construction it iterates the `huggingfaces` collection, queries the Hugging Face API to resolve file metadata (OID, size, path), and builds an internal `files` queue. If the network is unreachable the class sets `offline: true` and skips downloading.
+`_models` is the download-and-startup orchestrator. On construction it iterates the `huggingfaces` collection, queries the Hugging Face API to resolve file metadata (Git OID, size, path, LFS metadata), and builds an internal `files` queue. If the network is unreachable the class sets `offline: true` and skips downloading.
 
 URL formats accepted in `huggingface.URL`:
 
@@ -31,20 +31,30 @@ URL formats accepted in `huggingface.URL`:
 | options | Object | Merged server options |
 | event | cs.event.event | Callback functions |
 | offline | Boolean | `True` when the Hugging Face API could not be reached |
+| integrity | Object | `status` (`unverified`, `verified`, or `failed`), `failed`, per-file `results`, and `error` on failure |
 
 ### Methods
 
 #### download ()
 
-Iterates `files`. For each file that is already present on disk with the correct size, `onDownload` is called immediately (skipping the HTTP fetch). Otherwise a `cs.event.download` is created to fetch the file from Hugging Face.
+Dispatches the pending files once per instance. Assigns a unique internal completion identity to each destination before dispatch, so inline cached completions and out-of-order HTTP completions cannot remove another destination with the same Git OID. Repeated dispatches are ignored with a diagnostic.
 
-#### onDownload (oid : Text)
+When `lfs.oid` is a 64-hex SHA-256, an existing file is hashed even if its size differs from the metadata. It is never handed to the downloader for automatic replacement on an integrity mismatch. A completed managed download goes through the same gate. Hashing is delegated to the separately installed `cs.hash.hash` component, which reads through its streaming native CLI rather than loading a model into a 4D Blob.
+
+Without a supported provider digest, the existing size-based cache hit and download behavior is preserved, but recorded as `unverified`. The top-level tree `oid` is a Git blob identifier, **not** the LFS payload SHA-256; `xetHash` is not substituted.
+
+#### onDownload (oid : Text {; downloadId : Text})
 
 | Parameter | Type | | Description |
 | --- | --- | --- | --- |
 | oid | Text | -> | OID of the file that finished downloading |
+| downloadId | Text | -> | Optional internal identity supplied by the managed completion adapter |
 
-Removes the completed file from `files`. When `files` is empty (all downloads done) it calls `start()`.
+Verifies the completed destination before removing it from `files`. OID-only calls remain accepted and verify each matching pending destination separately. Duplicate, unknown, and reentrant callbacks do not cause another start. When all destinations have been accepted, it calls `start()` once. `integrity.status` becomes `verified` only if every managed destination was verified.
+
+A mismatch, unavailable/failed hash helper, or malformed hash output latches `integrity.failed` and blocks that start attempt, including late completions. A single `cs.event.error` with code `3` is delivered as `event.onError.call(model; options; error)`. It includes `file`, `expectedDigest`, `actualDigest`, and `details` (the hash component's diagnostic result when available). A bounded failure diagnostic is also sent to the 4D debug output, including when there is no usable subscriber. There is no automatic deletion, replacement, metadata refresh, or retry. Already-running transfers are not canceled by this gate.
+
+After inspecting the file/provider revision and repairing the destination explicitly, create a new wrapper attempt. Do not retry the failed instance.
 
 #### models () → cs.event.models *(virtual)*
 
