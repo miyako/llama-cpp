@@ -4,6 +4,7 @@ import json
 import os
 from pathlib import Path
 import plistlib
+import shutil
 import subprocess
 import tempfile
 import unittest
@@ -188,6 +189,75 @@ class PublisherTests(unittest.TestCase):
             with self.assertRaisesRegex(release.GateError, "trusted main"):
                 release.publish(Path("unused"))
 
+    def test_publication_guards_and_draft_roundtrip(self):
+        for failure in (None, "source-race", "release-race", "tag-exists", "wrong-parent",
+                        "wrong-bundle", "extra-change", "package-change", "draft-bytes"):
+            with self.subTest(failure=failure), tempfile.TemporaryDirectory() as temporary:
+                root = Path(temporary)
+                handoff = root / "handoff"
+                output = handoff / "release"
+                output.mkdir(parents=True)
+                (handoff / "evidence").mkdir()
+                proof = {"source_revision": "source", "version_commit": "version",
+                         "version": "20.5.25", "run_url": "https://example.invalid/run",
+                         "compiler_warning_count": 55}
+                release.write_json(handoff / "evidence/version.json",
+                                   {"version_commit": "version", "previous_latest": "20.5.24"})
+                for name in release.ASSETS:
+                    (output / name).write_bytes(b"final")
+                commands = []
+
+                def fake_run(*args, **kwargs):
+                    commands.append(tuple(str(arg) for arg in args))
+                    if args[:3] == ("git", "rev-parse", "FETCH_HEAD"):
+                        return "wrong" if failure == "wrong-bundle" else "version"
+                    if args[:3] == ("git", "rev-parse", "version^"):
+                        return "wrong" if failure == "wrong-parent" else "source"
+                    if args[:3] == ("git", "diff", "--name-only"):
+                        return "package.json\nREADME.md" if failure == "extra-change" else "package.json"
+                    if args[:2] == ("git", "show"):
+                        package = {"version": "20.5.24" if args[2].startswith("source:") else "20.5.25"}
+                        if failure == "package-change" and args[2].startswith("version:"):
+                            package["unexpected"] = True
+                        return json.dumps(package)
+                    if args[:2] == ("git", "ls-remote"):
+                        if args[-1] == "refs/heads/main":
+                            return ("moved" if failure == "source-race" else "source") + "\trefs/heads/main"
+                        return "exists" if failure == "tag-exists" else ""
+                    if args[:2] == ("gh", "api"):
+                        return json.dumps({"tag_name": "20.5.26" if failure == "release-race" else "20.5.24"})
+                    if args[:3] == ("gh", "release", "download"):
+                        for name in release.ASSETS:
+                            shutil.copyfile(output / name, root / "draft-download" / name)
+                        if failure == "draft-bytes":
+                            (root / "draft-download/llama-cpp.dmg").write_bytes(b"corrupted")
+                    return ""
+
+                environment = {
+                    "GITHUB_REF": "refs/heads/main", "GITHUB_EVENT_NAME": "workflow_dispatch",
+                    "GITHUB_SHA": "source", "GITHUB_REPOSITORY": "fixture/repo",
+                    "GITHUB_RUN_ID": "run", "GITHUB_RUN_ATTEMPT": "1",
+                    "EXPECTED_VERSION_COMMIT": "version", "EXPECTED_VERSION": "20.5.25",
+                }
+                with patch.dict(os.environ, environment), \
+                        patch.object(release, "BUILD", root), \
+                        patch.object(release, "verify_handoff", return_value=proof), \
+                        patch.object(release, "run", side_effect=fake_run):
+                    if failure:
+                        with self.assertRaises(release.GateError):
+                            release.publish(handoff)
+                    else:
+                        release.publish(handoff)
+                pushed = any(c[:2] == ("git", "push") for c in commands)
+                published = any(c[:3] == ("gh", "release", "edit") for c in commands)
+                if failure not in (None, "draft-bytes"):
+                    self.assertFalse(pushed)
+                self.assertEqual(published, failure is None)
+                if pushed:
+                    self.assertIn(("git", "push", "--atomic", "origin",
+                                   "version:refs/heads/main", "refs/tags/20.5.25"), commands)
+                self.assertFalse(any("--force" in c or "--clobber" in c for c in commands))
+
     def test_local_version_commit_bundle_round_trip(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
@@ -271,6 +341,10 @@ class SigningPipelineTests(unittest.TestCase):
                     Path(command[-1]).touch()
                 if label == "discover private DMG mount":
                     return plistlib.dumps({"images": []}).decode(), ""
+                if label == "Gatekeeper open assessment":
+                    if failure == "empty affirmative assessment":
+                        return "", ""
+                    return "", "llama-cpp.dmg: accepted\nsource=Notarized Developer ID\n"
                 if label == "sign actual Mach-O payload":
                     Path(command[-1]).write_bytes(b"signed")
                 if label == "create actual DMG":
@@ -333,6 +407,7 @@ class SigningPipelineTests(unittest.TestCase):
     def test_each_gate_failure_blocks_inventory_and_cleans_credentials(self):
         for failure in ("sign actual Mach-O payload", "sign DMG container", "notarize",
                         "staple actual DMG", "validate staple", "Gatekeeper open assessment",
+                        "empty affirmative assessment",
                         "mount final DMG read-only", "archive actual mounted component",
                         "extract final ZIP for verification"):
             with self.subTest(failure=failure):

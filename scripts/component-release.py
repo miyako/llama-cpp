@@ -161,6 +161,9 @@ def build():
     warnings = validate_compile(json.loads(report.read_text()))
     print(f"Compile succeeded with {len(warnings)} acknowledged nonfatal warnings; retained verbatim.")
     validate_component(COMPONENT)
+    require(sha256(COMPONENT / "Resources/bin/macOS/llama-server")
+            == sha256(ROOT / "llama-cpp/Resources/bin/macOS/llama-server"),
+            "Compiler modified or replaced the preserved macOS server")
     write_json(EVIDENCE / "pre-sign.json", {
         "component_files": inventory(COMPONENT), "compiler_revision": COMPILER,
         "tool4d_sha256": sha256(command[0]),

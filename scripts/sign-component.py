@@ -317,9 +317,13 @@ def sign():
         runner.run("validate staple", ["/usr/bin/xcrun", "stapler", "validate", dmg])
         require(signature(runner, dmg, identity) == signatures[dmg.name],
                 "Stapling changed the signed CodeDirectory")
-        runner.run("Gatekeeper open assessment", [
+        stdout, stderr = runner.run("Gatekeeper open assessment", [
             "/usr/sbin/spctl", "--assess", "--verbose=4", "--type", "open",
             "--context", "context:primary-signature", dmg])
+        assessment = stdout + "\n" + stderr
+        require(re.search(r": accepted(?:\n|$)", assessment)
+                and "source=Notarized Developer ID" in assessment,
+                "Gatekeeper did not affirm notarized Developer ID acceptance")
         mount.mkdir()
         runner.run("mount final DMG read-only", [
             "/usr/bin/hdiutil", "attach", "-readonly", "-nobrowse", "-mountpoint", mount, dmg])
