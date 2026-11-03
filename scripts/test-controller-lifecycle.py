@@ -19,6 +19,7 @@ FIXTURE = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(FIXTURE)
 
 SCHEDULE_IDS = {
+    "reference-controls",
     "response-dispatch", "old-termination", "final-release", "callbacks",
     "context", "reuse", "handler-restoration", "old-handler-ownership",
     "no-response-retention", "pending-parallel-queues", "stranded-execute",

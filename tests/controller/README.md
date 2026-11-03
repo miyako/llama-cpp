@@ -23,7 +23,7 @@ All fixture classes share one owning project, respecting 4D inheritance boundari
 
 The native matrix runs `/usr/bin/true`, `/usr/bin/false`, a shell **self-only** TERM attempt, `/bin/sleep 2` with a 0.1-second worker timeout, and a deliberately nonexistent executable. Each accepted command has a three-second wait and targeted worker termination if still running. The signal attempt is recorded exactly as observed; an engine-reported exit 0 is **not** evidence of a signalled native exit. The four accepted controls currently emit `response -> termination`, not native `onError`. False must exit 1. The missing executable must return null without callbacks and synchronously report POSX2; it is not an accepted-worker runtime failure.
 
-The 21 deterministic/native-controller checks are separated by `kind`:
+The 22 deterministic/native-controller checks are separated by `kind`:
 
 | Kind | Evidence |
 | --- | --- |
@@ -45,3 +45,7 @@ Reference workers 20.0.19 (`d58fcbd64eb050fcba658bf576ba18f24c51fad4`) creates a
 Local validation uses **21 R4 build 21R4.100208**. The dedicated read-only `Controller lifecycle characterization` Actions workflow uses the existing integrity workflow's official macOS arm64 **20.8 archive pinned by SHA-256**, verifies code signing, then runs this fixture without dependencies. It has only `contents:read`, uploads diagnostic artifacts even on failure, and never invokes publication. Hosted results are separate evidence and must be read from the actual run; a local 21 R4 pass is not a hosted 20.8 pass.
 
 Exact 20.7, Windows 4D, actual accepted native error-without-response, facade scheduling, live-server readiness and inference remain unverified. Synthetic schedules, real 4D compilation, real compiled execution, and real accepted-native controls are distinct tiers. No merge or production rollout is implied by this investigation PR.
+
+The initial hosted 20.8 run [41672156148](https://github.com/miyako/llama-cpp/actions/runs/41672156148) correctly stopped at compiler diagnostics: direct comparisons of typed object/function references in the fixture were accepted locally on 21 R4 but rejected on 20.8. The fixture now uses the documented [Collection.indexOf object-reference search](https://developer.4d.com/docs/20/API/CollectionClass#indexof), with same-reference and distinct-empty-object controls. No production source changed and no diagnostics were waived; the initial failed run remains visible.
+
+After that fixture correction, the local 21 R4 attempt `.build/controller-f7a7uw0v` emitted a fresh `success:true/errors:[]` compiler report but exited **-11 at shutdown**. The runner correctly failed and did not execute either test method. This is not a clean compilation/execution pass for the corrected fixture; the independently hosted 20.8 run is a separate validation path, not a way to relabel the local failure.
