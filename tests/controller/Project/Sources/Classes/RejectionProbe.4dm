@@ -16,7 +16,7 @@ Class constructor($path : Text; $done : Object)
 	var $build : Integer
 	var $version : Text
 	$version:=Application version($build; *)
-	This.report:={checks: []; errors: []; events: []; rejections: []; states: []; turns: []; complete: False; compiledMode: Is compiled mode; version: $version; build: $build; ownerProcess: Process info(Current process)}
+	This.report:={checks: []; errors: []; events: []; rejections: []; states: []; turns: []; complete: False; compiledMode: Is compiled mode; version: $version; build: $build; ownerProcess: rejectionProcess}
 	This.controller:=cs._CLI_Controller.new(cs._CLI.new())
 	This.controller.timeout:=2
 	This.controller.SYSTEM_WORKER_CONTEXT["existing"]:={retained: True}
@@ -110,14 +110,14 @@ Function record($name : Text; $receiver : Object; $worker : 4D.SystemWorker; $ev
 		This.workers.push($worker)
 	End if
 	If (This.report.events.length<32)
-		This.report.events.push({name: $name; phase: This.phase; pid: $worker.pid; type: $event.type; context: $event.context; exitCode: $worker.exitCode; receiver: sameReference($receiver; This.controller); process: Process info(Current process); constructionActive: This.constructing; currentPID: $current; complete: This.controller.complete})
+		This.report.events.push({name: $name; phase: This.phase; pid: $worker.pid; type: $event.type; context: $event.context; exitCode: $worker.exitCode; receiver: sameReference($receiver; This.controller); process: rejectionProcess; constructionActive: This.constructing; currentPID: $current; complete: This.controller.complete})
 	Else
 		This.report.errors.push("event-overflow")
 	End if
 
 Function tick()
 	This.ticks+=1
-	This.report.turns.push({turn: This.ticks; phase: This.phase; process: Process info(Current process)})
+	This.report.turns.push({turn: This.ticks; phase: This.phase; process: rejectionProcess})
 	If ((Milliseconds-This.started)>12000) || (This.ticks>120)
 		If (This.phase#"cleanup")
 			This.report.errors.push("bounded-worker-timeout")
@@ -190,7 +190,7 @@ Function tick()
 				scheduleCheck($clean; "final-cleanup"; This.report; "regression")
 				scheduleCheck(This.report.events.every(Formula(Not($1.value.constructionActive))); "constructor-callback-order"; This.report; "regression")
 				var $process : Object
-				$process:=Process info(Current process)
+				$process:=rejectionProcess
 				scheduleCheck((This.report.turns.length>1) && ($process.ID=This.report.ownerProcess.ID) && ($process.type=5) && (This.report.ownerProcess.number#1); "worker-owner-lifetime"; This.report; "regression")
 				This.report.reportProcess:=$process
 				This.report.complete:=True

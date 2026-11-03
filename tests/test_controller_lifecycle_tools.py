@@ -171,6 +171,15 @@ class EvidenceGateTests(unittest.TestCase):
         with self.assertRaises(RuntimeError):
             TOOLS.validate_rejection(report, original, compiled_mode=False)
 
+    def test_worker_identity_uses_lts_command(self):
+        source = ROOT / "tests/controller/Project/Sources"
+        fixture = "\n".join(path.read_text() for path in source.rglob("*.4dm"))
+        self.assertNotIn("Process info(", fixture)
+        helper = (source / "Methods/rejectionProcess.4dm").read_text()
+        self.assertIn("Get process activity:C1495(Processes only)", helper)
+        self.assertIn("$candidate.number=Current process", helper)
+        self.assertIn("ASSERT(False;", helper)
+
 
 if __name__ == "__main__":
     unittest.main()

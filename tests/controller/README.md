@@ -60,7 +60,9 @@ a late-event window and directly owned native-worker termination.
 is wrong, the fixture records `unsafeReusePrevented` and never launches a retry.
 It does not attempt to demonstrate runaway recursion. Successful worker callbacks
 run after the submitting method returns, without `SystemWorker.wait`. Subsequent
-mailbox turns and callbacks record the dedicated worker's `Process info` identity.
+mailbox turns and callbacks record the dedicated worker's number, unique ID,
+name and type. The `rejectionProcess` helper uses `Get process activity` command
+1495 (available before 20 LTS), not the `Process info` command introduced in 20 R7.
 The fixture's scoped local error handler captures expected native errors and is
 restored after each rejection; production code installs no handler.
 
@@ -120,7 +122,7 @@ across later mailbox turns, and all five child workers terminated**, then also
 exited **-11**. Its report passes offline structural checks, but the strict
 runtime gate **fails**. No success summary was generated.
 
-All further engine attempts stopped. Nine Python gate tests pass. No compilation
+All further engine attempts stopped. Ten Python gate tests pass. No compilation
 of this new patch, clean-exit worker pass, new 20.7/20.8 execution, new hosted
 verification or production/facade validation is claimed. Historical hosted
 passes apply only to the earlier characterization, not this patch. Closing the
