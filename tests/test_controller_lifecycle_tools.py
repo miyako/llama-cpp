@@ -99,6 +99,78 @@ class EvidenceGateTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, "sequence changed"):
             TOOLS.validate_native(report, rejection)
 
+    def rejection_report(self):
+        owner = {"number": 2, "ID": 73, "name": "isolated-probe", "type": 5}
+        original = [{"errCode": 2, "componentSignature": "POSX",
+                     "message": "No such file or directory"}]
+        events = []
+        for pid, context in enumerate((
+            "reuse-single", "reuse-batch", "reuse-repeated", "first", "second",
+        ), 100):
+            events.extend([
+                {"name": name, "pid": pid, "context": context, "exitCode": 0,
+                 "receiver": True, "constructionActive": False, "process": owner.copy()}
+                for name in ("response", "termination")
+            ])
+        states = []
+        context_map = {"existing": {"retained": True}}
+        for index, label in enumerate((
+            "reject-single", "reject-batch", "reject-repeat-1", "reject-repeat-2",
+        )):
+            if index in (1, 2):
+                context_map[str(99 + index)] = events[(index - 1) * 2]["context"]
+            states.append({
+                "label": label, "safeToReuse": True, "workerNull": True, "complete": True,
+                "commands": [], "messages": [], "contexts": [],
+                "publicResponseRestored": True, "publicTerminationRestored": True,
+                "contextMap": copy.deepcopy(context_map),
+            })
+        return {
+            "complete": True, "compiledMode": True, "errors": [],
+            "checks": [{"id": name, "passed": True} for name in TOOLS.REJECTION_IDS],
+            "rejectionCleanupVerified": True,
+            "rejections": [{"errors": copy.deepcopy(original), "process": owner.copy()}
+                           for _ in range(4)],
+            "states": states,
+            "ownerProcess": owner, "reportProcess": owner.copy(),
+            "turns": [{"process": owner.copy()}, {"process": owner.copy()}],
+            "events": events,
+            "cleanup": [{"pid": pid, "terminated": True} for pid in range(100, 105)],
+        }, original
+
+    def test_worker_rejection_evidence_gates(self):
+        report, original = self.rejection_report()
+        TOOLS.validate_rejection(report, original)
+        mutations = (
+            lambda r: r.update(unsafeReusePrevented=True),
+            lambda r: r["rejections"][0]["errors"][0].update(componentSignature="host"),
+            lambda r: r["states"][0].update(safeToReuse=False),
+            lambda r: r["states"][0].update(messages=[None]),
+            lambda r: r["states"][0]["contextMap"].update(failed="failed"),
+            lambda r: r["reportProcess"].update(ID=74),
+            lambda r: r["events"][0].update(receiver=False),
+            lambda r: r["events"][0].update(constructionActive=True),
+            lambda r: r["events"][0].update(context="failed"),
+            lambda r: r["events"][1].update(pid=999),
+            lambda r: r["cleanup"][0].update(terminated=False),
+        )
+        for mutate in mutations:
+            with self.subTest(mutate=mutate):
+                bad = copy.deepcopy(report)
+                mutate(bad)
+                with self.assertRaises(RuntimeError):
+                    TOOLS.validate_rejection(bad, original)
+
+    def test_interpreted_tier_does_not_satisfy_compiled_gate(self):
+        report, original = self.rejection_report()
+        report["compiledMode"] = False
+        TOOLS.validate_rejection(report, original, compiled_mode=False)
+        with self.assertRaises(RuntimeError):
+            TOOLS.validate_rejection(report, original)
+        report["compiledMode"] = True
+        with self.assertRaises(RuntimeError):
+            TOOLS.validate_rejection(report, original, compiled_mode=False)
+
 
 if __name__ == "__main__":
     unittest.main()
