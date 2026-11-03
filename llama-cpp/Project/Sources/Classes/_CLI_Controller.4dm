@@ -78,16 +78,21 @@ Function execute($command : Variant; $message : Variant; $context : Variant) : c
 	
 	If ($commands#Null:C1517) && ($commands.length#0)
 		
-		This:C1470._commands.combine($commands)
-		This:C1470._messages.combine($messages)
-		This:C1470._contexts.combine($contexts)
-		
-		If (This:C1470._worker=Null:C1517)
-			This:C1470._onResponse:=This:C1470.onResponse
-			This:C1470.onResponse:=This:C1470._onExecute
-			This:C1470._onTerminate:=This:C1470.onTerminate
-			This:C1470.onTerminate:=This:C1470._onComplete
-			This:C1470._execute()
+		If (This:C1470._worker=Null:C1517) && (This:C1470._commands.length=0) && (This:C1470._messages.length=0) && (This:C1470._contexts.length=0)
+			This:C1470._complete:=True:C214
+			This:C1470._execute($commands; $messages; $contexts)
+		Else
+			This:C1470._commands.combine($commands)
+			This:C1470._messages.combine($messages)
+			This:C1470._contexts.combine($contexts)
+
+			If (This:C1470._worker=Null:C1517)
+				This:C1470._onResponse:=This:C1470.onResponse
+				This:C1470.onResponse:=This:C1470._onExecute
+				This:C1470._onTerminate:=This:C1470.onTerminate
+				This:C1470.onTerminate:=This:C1470._onComplete
+				This:C1470._execute()
+			End if
 		End if 
 		
 	End if 
@@ -134,11 +139,39 @@ Function _onExecute($worker : 4D:C1709.SystemWorker; $params : Object)
 		This:C1470._onResponse.call(This:C1470; $worker; $params)
 	End if 
 	
-Function _execute()
+Function _execute($commands : Collection; $messages : Collection; $contexts : Collection)
+
+	var $worker : 4D:C1709.SystemWorker
+	If ($commands#Null:C1517)
+		// Stage only an empty idle submission; constructor errors propagate without changing its queues or handlers.
+		var $options : Object
+		$options:={controller: This:C1470; timeout: This:C1470.timeout; dataType: This:C1470.dataType; encoding: This:C1470.encoding; variables: This:C1470.variables; currentDirectory: This:C1470.currentDirectory; hideWindow: This:C1470.hideWindow}
+		$options.handlers:={onResponse: This:C1470._onExecute; onTerminate: This:C1470._onComplete; onData: This:C1470.onData; onDataError: This:C1470.onDataError; onError: This:C1470.onError}
+		$options.onResponse:=Formula:C1597(This:C1470.controller._onInitialEvent(This:C1470; $1; $2; "onResponse"))
+		$options.onTerminate:=Formula:C1597(This:C1470.controller._onInitialEvent(This:C1470; $1; $2; "onTerminate"))
+		$options.onData:=Formula:C1597(This:C1470.controller._onInitialEvent(This:C1470; $1; $2; "onData"))
+		$options.onDataError:=Formula:C1597(This:C1470.controller._onInitialEvent(This:C1470; $1; $2; "onDataError"))
+		$options.onError:=Formula:C1597(This:C1470.controller._onInitialEvent(This:C1470; $1; $2; "onError"))
+		$worker:=4D:C1709.SystemWorker.new($commands[0]; $options)
+		If ($worker=Null:C1517)
+			// A caller's installed error handler may resume after the native rejection.
+			return
+		End if
+		This:C1470._onResponse:=This:C1470.onResponse
+		This:C1470.onResponse:=This:C1470._onExecute
+		This:C1470._onTerminate:=This:C1470.onTerminate
+		This:C1470.onTerminate:=This:C1470._onComplete
+		This:C1470._commands.combine($commands)
+		This:C1470._messages.combine($messages)
+		This:C1470._contexts.combine($contexts)
+		This:C1470._commands.shift()
+	Else
+		This:C1470._complete:=False:C215
+		$worker:=4D:C1709.SystemWorker.new(This:C1470._commands.shift(); This:C1470)
+	End if
 	
 	This:C1470._complete:=False:C215
-	
-	This:C1470._worker:=4D:C1709.SystemWorker.new(This:C1470._commands.shift(); This:C1470)
+	This:C1470._worker:=$worker
 	
 	This:C1470.SYSTEM_WORKER_CONTEXT[String:C10(This:C1470._worker.pid)]:=This:C1470._contexts.shift()
 	
@@ -171,6 +204,14 @@ Function _execute()
 			This:C1470._worker.closeInput()
 			
 	End case 
+
+Function _onInitialEvent($options : Object; $worker : 4D:C1709.SystemWorker; $params : Object; $event : Text)
+
+	var $callback : 4D:C1709.Function
+	$callback:=$options.handlers[$event]
+	If (OB Instance of:C1731($callback; 4D:C1709.Function))
+		$callback.call(This:C1470; $worker; $params)
+	End if
 	
 Function _onComplete($worker : 4D:C1709.SystemWorker; $params : Object)
 	

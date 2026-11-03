@@ -9,7 +9,7 @@
 
 ## Description
 
-`_CLI_Controller` serializes an ordered queue of shell commands, executing each one in its own `4D.SystemWorker` and advancing to the next only after the previous worker has terminated. It is attached to a `_CLI` instance and is not used directly by application code.
+`_CLI_Controller` serializes an ordered queue of shell commands, executing each one in its own `4D.SystemWorker` and advancing on its response callback. It is attached to a `_CLI` instance and is not used directly by application code.
 
 ### Properties
 
@@ -52,6 +52,27 @@ Enqueues one or more commands and starts execution if no worker is currently run
 | Result | cs.llama._CLI_Controller | <- | `This` — enables chaining |
 
 When `message` is an Object or Collection it is serialized to JSON before being posted. Blob and Text values are posted as-is. Scalar values are converted with `String()`.
+
+For an idle controller with all three queues empty, the new batch is staged until
+the first native worker is constructed successfully. A synchronous constructor
+rejection propagates the original native error without installing an error
+handler or translating the exception. The failed batch, including sibling
+commands, never enters the queues; messages/contexts remain empty, callbacks and
+the context map are unchanged, `worker` remains `Null`, and `complete` is `True`.
+If a caller's error handler resumes after the native error, a returned null worker
+also commits nothing.
+
+The initial worker uses a private options adapter to forward native callbacks
+with the original controller as receiver and unchanged worker/event arguments.
+Construction and commit contain no wait/listening loop. Successful dispatch,
+quiet default stream handlers and subsequent response-driven queue advancement
+are unchanged. This uses the existing 20.7-compatible language, not `Try`/`throw`.
+
+This narrow rule does not repair previously corrupted/nonempty idle controllers,
+change explicit abort behavior, or handle rejection of a later command dispatched
+from an earlier worker's response. Those ownership/error-policy cases remain
+separate. Do not retry a controller already left with installed wrappers by older
+code; use a fresh controller with the corrected source.
 
 #### terminate ()
 
