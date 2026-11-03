@@ -1,17 +1,17 @@
 {
-  "name": "llama-cpp",
-  "description": "Local inference engine",
   "author": [
     "Keisuke Miyako <keisuke.miyako@4D.com>"
   ],
+  "description": "Local inference engine",
   "license": "MIT",
+  "name": "llama-cpp",
   "repository": "https://github.com/miyako/llama-cpp",
-  "version": "20.5.24",
   "tool": {
-    "platform": "macos",
+    "arch": "arm",
     "branch": "20.x",
-    "version": "20.7",
     "build": "latest",
-    "arch": "arm"
-  }
+    "platform": "macos",
+    "version": "20.7"
+  },
+  "version": "20.5.25"
 }
