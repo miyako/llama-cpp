@@ -1,9 +1,8 @@
 name: Publish
-  
+
 on:
   push:
-    branches:
-    - main
+    branches: [main]
     paths:
       - '*/Project/Sources/**/*.4dm'
       - '*/Project/Sources/*/*.4DForm'
@@ -11,181 +10,116 @@ on:
       - '*/Project/Resources/**'
   workflow_dispatch:
     inputs:
-        use_self_hosted:
-            type: boolean
-            description: when github hosted runners are busy
-            required: true
-            default: false
-        mode:
-          type: choice
-          description: semantic versioning
-          options: 
-          - patch
-          - minor 
-          - major
-          required: true
+      use_self_hosted:
+        type: boolean
+        description: Use the existing self-hosted macOS runner
+        default: false
+      mode:
+        type: choice
+        description: Normal semantic version increment
+        options: [patch, minor, major]
+        default: patch
+      publish:
+        type: boolean
+        description: Publish a new release (main only); otherwise sign a private candidate
+        default: false
 
-env: 
-  project_path: llama-cpp/Project/llama-cpp.4DProject
-  
+permissions:
+  contents: read
+
+concurrency:
+  group: component-publisher
+  cancel-in-progress: false
+
 jobs:
+  candidate:
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    runs-on: ${{ inputs.use_self_hosted && fromJSON('["self-hosted","macos"]') || fromJSON('["macos-latest"]') }}
+    timeout-minutes: 40
+    outputs:
+      version: ${{ steps.prepare.outputs.version }}
+      version_commit: ${{ steps.prepare.outputs.version_commit }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Test fail-closed gates
+        run: python3 -m unittest discover -s tests -p 'test_publisher*.py'
+      - name: Prepare local version commit (never push)
+        id: prepare
+        env:
+          MODE: ${{ inputs.mode || 'patch' }}
+          GH_TOKEN: ${{ github.token }}
+        run: python3 scripts/component-release.py prepare --mode "$MODE"
+      - name: Get unchanged tool4d configuration
+        id: tool
+        uses: miyako/4D/.github/actions/tool4d-get-version@2667897263fd24ed5c7840b204cd84c726dd8570
+      - name: Get existing tool4d (no runtime upgrade)
+        uses: miyako/4D/.github/actions/tool4d-download@2667897263fd24ed5c7840b204cd84c726dd8570
+        with:
+          platform: ${{ steps.tool.outputs.platform }}
+          branch: ${{ steps.tool.outputs.branch }}
+          version: ${{ steps.tool.outputs.version }}
+          build: ${{ steps.tool.outputs.build }}
+          arch: ${{ steps.tool.outputs.arch }}
+      - name: Checkout reviewed compiler
+        uses: actions/checkout@v4
+        with:
+          repository: miyako/4d-class-compiler
+          ref: b73a89a9eac2636f59bcbd020ccf0aad954cab64
+          path: .build/compiler
+          persist-credentials: false
+      - name: Compile with structured status and retain nonfatal warnings
+        run: python3 scripts/component-release.py build
+      - name: Sign, notarize, staple and verify actual distribution
+        env:
+          APPLE_DEVELOPER_ID_CERTIFICATE: ${{ secrets.APPLE_DEVELOPER_ID_CERTIFICATE }}
+          APPLE_DEVELOPER_ID_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_DEVELOPER_ID_CERTIFICATE_PASSWORD }}
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+          NOTARYTOOL_APPLE_ID: ${{ secrets.NOTARYTOOL_APPLE_ID }}
+          NOTARYTOOL_TEAM_ID: ${{ secrets.NOTARYTOOL_TEAM_ID }}
+          NOTARYTOOL_PASSWORD: ${{ secrets.NOTARYTOOL_PASSWORD }}
+        run: python3 scripts/sign-component.py
+      - name: Recover ephemeral signing credentials
+        if: always()
+        run: python3 scripts/sign-component.py --cleanup
+      - name: Retain sanitized same-run candidate and evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: component-candidate
+          path: |
+            .build/release/*
+            .build/evidence/*
+          if-no-files-found: error
+          retention-days: 14
+      - name: Candidate links
+        if: success()
+        run: |
+          echo '## Signed component candidate' >> "$GITHUB_STEP_SUMMARY"
+          echo 'All container, mounted payload and final-byte gates passed. No tag or version was pushed by this job.' >> "$GITHUB_STEP_SUMMARY"
+          cat .build/release/provenance.json >> "$GITHUB_STEP_SUMMARY"
 
   publish:
-    if: ${{ github.event.inputs.use_self_hosted != 'true' }}
-    permissions: write-all
-    runs-on: [macos-latest]
+    needs: candidate
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || inputs.publish)
+    permissions:
+      contents: write
+    runs-on: macos-latest
+    timeout-minutes: 15
     steps:
-
-      - name: configure
-        id: configure
-        uses: miyako/4D/.github/actions/bash/configure@v1
+      - uses: actions/checkout@v4
         with:
-          mode: ${{ inputs.mode || 'patch' }}
-
-      - name: checkout 
-        uses: actions/checkout@v4
-
-      - name: set version
-        id: version
-        uses: miyako/4D/.github/actions/package-set-version@v1
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+      - uses: actions/download-artifact@v4
         with:
-          mode: ${{ steps.configure.outputs.mode }}
-
-      - name: get tool version
-        id: tool
-        uses: miyako/4D/.github/actions/tool4d-get-version@v1
-        
-      - name: get tool4d
-        id: get
-        uses: miyako/4D/.github/actions/tool4d-download@v1
-        with:
-          platform: ${{ steps.tool.outputs.platform }}
-          branch: ${{ steps.tool.outputs.branch }}
-          version: ${{ steps.tool.outputs.version }}
-          build: ${{ steps.tool.outputs.build }}
-          arch: ${{ steps.tool.outputs.arch }}
-
-      - name: build
-        id: build
-        uses: miyako/4D/.github/actions/build-component@v1
-        with:
-          project_path: ${{ steps.configure.outputs.project_path }}
-          pack_project: 'true'
-          use_standard_zip: 'true'
-
-      - name: setup keychain 
-        id: keychain
-        uses: miyako/4D/.github/actions/deployment-setup-keychain@v1
-        with:
-          APPLE_DEVELOPER_ID_CERTIFICATE: ${{ secrets.APPLE_DEVELOPER_ID_CERTIFICATE }}
-          APPLE_DEVELOPER_ID_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_DEVELOPER_ID_CERTIFICATE_PASSWORD }}
-          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
-
-      - name: codesign
-        id: codesign
-        uses: miyako/4D/.github/actions/deployment-codesign-product@v1
-        with: 
-          sign: ${{ secrets.CODESIGN_APPLE_ID }} 
-          apple_id: ${{ secrets.NOTARYTOOL_APPLE_ID }}         
-          team_id: ${{ secrets.NOTARYTOOL_TEAM_ID }}   
-          password: ${{ secrets.NOTARYTOOL_PASSWORD }}
-          product_path: ${{ steps.build.outputs.product_path }}
-          keychain: ${{ steps.keychain.outputs.KEYCHAIN_PATH }}
-          
-      - name: zip
-        id: zip
-        uses: miyako/4D/.github/actions/deployment-create-zip@v1
-        with: 
-          dmg_path: ${{ steps.codesign.outputs.dmg_path }}
-          zip_path: ${{ steps.codesign.outputs.zip_path }}
-
-      - name: upload assets
-        id: upload
-        uses: miyako/4D/.github/actions/deployment-release-assets@v1
-        with: 
-          dmg_path: ${{ steps.zip.outputs.dmg_path }}
-          zip_path: ${{ steps.zip.outputs.zip_path }}    
-          tag_name: ${{ steps.version.outputs.version }}   
-          release_name: ${{ steps.version.outputs.version }}  
+          name: component-candidate
+          path: .build/handoff
+      - name: Verify same-run bytes, guard source race and publish
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}    
-
-  publish-locally:
-    if: ${{ github.event.inputs.use_self_hosted == 'true' }}
-    permissions: write-all
-    runs-on: [self-hosted, macos]
-    steps:
-
-      - name: configure
-        id: configure
-        uses: miyako/4D/.github/actions/bash/configure@v1
-        with:
-          mode: ${{ inputs.mode || 'patch' }}
-
-      - name: checkout 
-        uses: actions/checkout@v4
-
-      - name: set version
-        id: version
-        uses: miyako/4D/.github/actions/package-set-version@v1
-        with:
-          mode: ${{ steps.configure.outputs.mode }}
-
-      - name: get tool version
-        id: tool
-        uses: miyako/4D/.github/actions/tool4d-get-version@v1
-        
-      - name: get tool4d
-        id: get
-        uses: miyako/4D/.github/actions/tool4d-download@v1
-        with:
-          platform: ${{ steps.tool.outputs.platform }}
-          branch: ${{ steps.tool.outputs.branch }}
-          version: ${{ steps.tool.outputs.version }}
-          build: ${{ steps.tool.outputs.build }}
-          arch: ${{ steps.tool.outputs.arch }}
-
-      - name: build
-        id: build
-        uses: miyako/4D/.github/actions/build-component@v1
-        with:
-          project_path: ${{ steps.configure.outputs.project_path }}
-          pack_project: 'true'
-          use_standard_zip: 'true'
-
-      - name: setup keychain 
-        id: keychain
-        uses: miyako/4D/.github/actions/deployment-setup-keychain@v1
-        with:
-          APPLE_DEVELOPER_ID_CERTIFICATE: ${{ secrets.APPLE_DEVELOPER_ID_CERTIFICATE }}
-          APPLE_DEVELOPER_ID_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_DEVELOPER_ID_CERTIFICATE_PASSWORD }}
-          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
-
-      - name: codesign
-        id: codesign
-        uses: miyako/4D/.github/actions/deployment-codesign-product@v1
-        with: 
-          sign: ${{ secrets.CODESIGN_APPLE_ID }} 
-          apple_id: ${{ secrets.NOTARYTOOL_APPLE_ID }}         
-          team_id: ${{ secrets.NOTARYTOOL_TEAM_ID }}   
-          password: ${{ secrets.NOTARYTOOL_PASSWORD }}
-          product_path: ${{ steps.build.outputs.product_path }}
-          keychain: ${{ steps.keychain.outputs.KEYCHAIN_PATH }}
-          
-      - name: zip
-        id: zip
-        uses: miyako/4D/.github/actions/deployment-create-zip@v1
-        with: 
-          dmg_path: ${{ steps.codesign.outputs.dmg_path }}
-          zip_path: ${{ steps.codesign.outputs.zip_path }}
-
-      - name: upload assets
-        id: upload
-        uses: miyako/4D/.github/actions/deployment-release-assets@v1
-        with: 
-          dmg_path: ${{ steps.zip.outputs.dmg_path }}
-          zip_path: ${{ steps.zip.outputs.zip_path }}    
-          tag_name: ${{ steps.version.outputs.version }}   
-          release_name: ${{ steps.version.outputs.version }}  
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}    
+          GH_TOKEN: ${{ github.token }}
+          EXPECTED_VERSION: ${{ needs.candidate.outputs.version }}
+          EXPECTED_VERSION_COMMIT: ${{ needs.candidate.outputs.version_commit }}
+        run: python3 scripts/component-release.py publish --handoff .build/handoff
