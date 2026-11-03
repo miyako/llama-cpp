@@ -61,8 +61,11 @@ is wrong, the fixture records `unsafeReusePrevented` and never launches a retry.
 It does not attempt to demonstrate runaway recursion. Successful worker callbacks
 run after the submitting method returns, without `SystemWorker.wait`. Subsequent
 mailbox turns and callbacks record the dedicated worker's number, unique ID,
-name and type. The `rejectionProcess` helper uses `Get process activity` command
-1495 (available before 20 LTS), not the `Process info` command introduced in 20 R7.
+name and type. The `rejectionProcess` helper uses the legacy
+`PROCESS PROPERTIES:C336` outputs, including unique ID and process origin.
+It preserves the command token across renaming and does not invent identity
+fields when metadata is unavailable: startup records `owner-identity-unavailable`
+and enters bounded cleanup without exercising rejection or reuse.
 The fixture's scoped local error handler captures expected native errors and is
 restored after each rejection; production code installs no handler.
 
@@ -122,15 +125,32 @@ across later mailbox turns, and all five child workers terminated**, then also
 exited **-11**. Its report passes offline structural checks, but the strict
 runtime gate **fails**. No success summary was generated.
 
-All further engine attempts stopped. Ten Python gate tests pass. No compilation
-of this new patch, clean-exit worker pass, new 20.7/20.8 execution, new hosted
-verification or production/facade validation is claimed. Historical hosted
-passes apply only to the earlier characterization, not this patch. Closing the
-new validation gap requires an explicitly approved independent environment,
-not more retries of this host's shutdown failure.
+All further local engine attempts stopped. Ten Python gate tests pass. At that
+point no compilation of this new patch, clean-exit worker pass, new 20.7/20.8
+execution, new hosted verification or production/facade validation was claimed.
+Historical hosted passes applied only to the earlier characterization, not this
+patch. The user subsequently approved the independent hosted verification
+described below, not more retries of this host's shutdown failure.
 
-The local interpreted report above predates the fixture-only process-activity
+The local interpreted report above predates the fixture-only process-identity
 helper. It does not verify the current fixture or establish 20 LTS compatibility.
 The follow-up review changes tests/documentation only, not the already merged
 controller, publisher workflow or release policy. Hosted results must be bound to
 their actual source head, checksum-pinned engine, diagnostics and exit records.
+
+The original un-tokenized `Process info` calls failed hosted 20.8 compilation.
+That name-resolution failure alone did not establish command-ID availability.
+Static inspection of the actual 20.8 build 20.102083 command catalog independently
+found 1827 command entries and no C1843; its C336 is procedural `PROCESS PROPERTIES`.
+In 21 R4, C336 is renamed `_O_PROCESS PROPERTIES` and C1843 is the distinct
+object-returning `Process info`. A suffix preserves command identity across a
+rename; it cannot add a command absent from the older engine.
+
+Follow-up run [41742023358](https://github.com/miyako/llama-cpp/actions/runs/41742023358)
+compiled cleanly on pinned 20.8 and completed the compiled native matrix (2 checks)
+and schedules (22 checks), all with exit 0. Its first C1495 process-activity helper
+did not return a usable `processes` collection in tool4d; the owning worker emitted
+identity errors and the driver reached its bound without a worker report.
+The strict gate failed despite exit 0. The C336 helper and startup guard replace
+that failed approach, but require a new actual hosted result; compilation does
+not prove runtime metadata support, and no owner-identity gate is waived.

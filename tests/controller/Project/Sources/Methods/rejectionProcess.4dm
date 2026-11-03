@@ -1,10 +1,7 @@
 #DECLARE()->$process : Object
-var $activity; $candidate : Object
-$activity:=Get process activity:C1495(Processes only)
-For each ($candidate; $activity.processes)
-	If ($candidate.number=Current process)
-		$process:=OB Copy($candidate)
-		return
-	End if
-End for each
-ASSERT(False; "Current diagnostic worker missing from process activity")
+var $number; $state; $time; $mode; $ID; $origin : Integer
+var $name : Text
+$number:=Current process:C322
+$state:=-100
+PROCESS PROPERTIES:C336($number; $name; $state; $time; $mode; $ID; $origin)
+$process:={number: $number; ID: $ID; name: $name; type: $origin; state: $state; available: ($name#"") && ($state#-100) && ($ID#0) && ($origin=5)}

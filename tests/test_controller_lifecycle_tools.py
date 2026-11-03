@@ -100,7 +100,8 @@ class EvidenceGateTests(unittest.TestCase):
             TOOLS.validate_native(report, rejection)
 
     def rejection_report(self):
-        owner = {"number": 2, "ID": 73, "name": "isolated-probe", "type": 5}
+        owner = {"number": 2, "ID": 73, "name": "isolated-probe", "type": 5,
+                 "available": True}
         original = [{"errCode": 2, "componentSignature": "POSX",
                      "message": "No such file or directory"}]
         events = []
@@ -147,6 +148,10 @@ class EvidenceGateTests(unittest.TestCase):
             lambda r: r["states"][0].update(safeToReuse=False),
             lambda r: r["states"][0].update(messages=[None]),
             lambda r: r["states"][0]["contextMap"].update(failed="failed"),
+            lambda r: r["ownerProcess"].update(available=False),
+            lambda r: r["ownerProcess"].update(ID=0),
+            lambda r: r["ownerProcess"].update(number=0),
+            lambda r: r["ownerProcess"].update(name=""),
             lambda r: r["reportProcess"].update(ID=74),
             lambda r: r["events"][0].update(receiver=False),
             lambda r: r["events"][0].update(constructionActive=True),
@@ -176,9 +181,13 @@ class EvidenceGateTests(unittest.TestCase):
         fixture = "\n".join(path.read_text() for path in source.rglob("*.4dm"))
         self.assertNotIn("Process info(", fixture)
         helper = (source / "Methods/rejectionProcess.4dm").read_text()
-        self.assertIn("Get process activity:C1495(Processes only)", helper)
-        self.assertIn("$candidate.number=Current process", helper)
-        self.assertIn("ASSERT(False;", helper)
+        self.assertIn("PROCESS PROPERTIES:C336(", helper)
+        self.assertIn("Current process:C322", helper)
+        self.assertIn("$state:=-100", helper)
+        self.assertIn("($ID#0) && ($origin=5)", helper)
+        self.assertNotIn("Get process activity", helper)
+        worker = (source / "Methods/rejectionWorker.4dm").read_text()
+        self.assertIn("If (rejectionProbe.report.errors.length=0)", worker)
 
 
 if __name__ == "__main__":

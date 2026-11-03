@@ -17,6 +17,9 @@ Class constructor($path : Text; $done : Object)
 	var $version : Text
 	$version:=Application version($build; *)
 	This.report:={checks: []; errors: []; events: []; rejections: []; states: []; turns: []; complete: False; compiledMode: Is compiled mode; version: $version; build: $build; ownerProcess: rejectionProcess}
+	If (Not(This.report.ownerProcess.available))
+		This.report.errors.push("owner-identity-unavailable")
+	End if
 	This.controller:=cs._CLI_Controller.new(cs._CLI.new())
 	This.controller.timeout:=2
 	This.controller.SYSTEM_WORKER_CONTEXT["existing"]:={retained: True}

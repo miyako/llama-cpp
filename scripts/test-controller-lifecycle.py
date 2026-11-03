@@ -121,7 +121,10 @@ def validate_rejection(report, original, *, compiled_mode=True):
         raise RuntimeError("Missing guarded initial-idle rejection state")
     owner = report.get("ownerProcess", {})
     final = report.get("reportProcess", {})
-    if owner.get("type") != 5 or owner.get("number") == 1 or owner.get("ID") is None:
+    if (owner.get("available") is not True or owner.get("type") != 5
+            or type(owner.get("number")) is not int or owner["number"] in (0, 1)
+            or type(owner.get("ID")) is not int or owner["ID"] == 0
+            or not isinstance(owner.get("name"), str) or not owner["name"]):
         raise RuntimeError("Missing dedicated persistent worker identity")
     for process in [final, *[turn.get("process", {}) for turn in report.get("turns", [])]]:
         if any(process.get(key) != owner.get(key) for key in ("ID", "number", "name", "type")):

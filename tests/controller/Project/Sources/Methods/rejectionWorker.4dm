@@ -6,7 +6,11 @@ If ($action="start")
 		$done.workerNumber:=Current process
 	End use
 	rejectionProbe:=cs.RejectionProbe.new($path; $done)
-	rejectionProbe.advance()
+	If (rejectionProbe.report.errors.length=0)
+		rejectionProbe.advance()
+	Else
+		rejectionProbe.finish(False)
+	End if
 Else
 	rejectionProbe.tick()
 End if
