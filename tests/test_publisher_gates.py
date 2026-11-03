@@ -269,6 +269,8 @@ class SigningPipelineTests(unittest.TestCase):
                     return " ".join(sorted(release.CODE[relative])), ""
                 if label == "create ephemeral keychain":
                     Path(command[-1]).touch()
+                if label == "discover private DMG mount":
+                    return plistlib.dumps({"images": []}).decode(), ""
                 if label == "sign actual Mach-O payload":
                     Path(command[-1]).write_bytes(b"signed")
                 if label == "create actual DMG":
@@ -335,6 +337,30 @@ class SigningPipelineTests(unittest.TestCase):
                         "extract final ZIP for verification"):
             with self.subTest(failure=failure):
                 self.exercise(failure)
+
+    def test_independent_recovery_detaches_unknown_mount_before_removing_credentials(self):
+        with tempfile.TemporaryDirectory() as temporary, \
+                patch.dict(os.environ, {"RUNNER_TEMP": temporary}):
+            private = signer.private_directory()
+            private.mkdir()
+            (private / "release.keychain-db").touch()
+            (private / "identity.p12").write_bytes(b"private credential")
+            operations = []
+
+            class RecoveryRunner:
+                def __init__(self, *args):
+                    pass
+
+                def run(self, label, command):
+                    operations.append(label)
+                    return plistlib.dumps({"images": [{"system-entities": [
+                        {"mount-point": str(private / "mount")}]}]}).decode(), ""
+
+            with patch.object(signer, "Runner", RecoveryRunner):
+                signer.cleanup()
+            self.assertEqual(operations, ["discover private DMG mount", "detach private DMG mount",
+                                          "delete abandoned ephemeral keychain"])
+            self.assertFalse(private.exists())
 
 
 if __name__ == "__main__":

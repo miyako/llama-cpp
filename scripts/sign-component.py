@@ -179,6 +179,19 @@ def private_directory():
     return parent / "llama-component-signing"
 
 
+def detach_private_mount(runner, mount):
+    """Recover even if attach mounted successfully before timing out or being interrupted."""
+    stdout, _ = runner.run("discover private DMG mount", ["/usr/bin/hdiutil", "info", "-plist"])
+    info = plistlib.loads(stdout.encode())
+    require(isinstance(info, dict) and isinstance(info.get("images"), list),
+            "Cannot determine mounted image state")
+    for image in info["images"]:
+        for entity in image.get("system-entities", []):
+            if entity.get("mount-point") == str(mount):
+                runner.run("detach private DMG mount", ["/usr/bin/hdiutil", "detach", mount])
+                return
+
+
 def cleanup():
     private = private_directory()
     require(not private.is_symlink(), "Refusing symlinked signing directory")
@@ -190,11 +203,15 @@ def cleanup():
     require(not home.is_symlink() and not keychain.is_symlink(), "Refusing symlinked credential paths")
     runner = Runner({}, release.EVIDENCE / "cleanup-receipts.json", home)
     try:
-        if keychain.exists():
-            runner.run("delete abandoned ephemeral keychain", [
-                "/usr/bin/security", "delete-keychain", keychain])
+        detach_private_mount(runner, private / "mount")
     finally:
-        shutil.rmtree(private)
+        try:
+            if keychain.exists():
+                runner.run("delete abandoned ephemeral keychain", [
+                    "/usr/bin/security", "delete-keychain", keychain])
+        finally:
+            (private / "identity.p12").unlink(missing_ok=True)
+            shutil.rmtree(private)
 
 
 def verify_payload(runner, component, identity, expected_files):
@@ -322,13 +339,14 @@ def sign():
         attached = False
     finally:
         try:
-            if attached:
-                runner.run("cleanup mounted DMG", ["/usr/bin/hdiutil", "detach", mount])
+            if attached or mount.exists():
+                detach_private_mount(runner, mount)
         finally:
             try:
                 if keychain.exists():
                     runner.run("delete ephemeral keychain", ["/usr/bin/security", "delete-keychain", keychain])
             finally:
+                p12.unlink(missing_ok=True)
                 shutil.rmtree(private)
                 for operation, before_state in global_state.items():
                     require(runner.run(f"assert unchanged real-user {operation}",
