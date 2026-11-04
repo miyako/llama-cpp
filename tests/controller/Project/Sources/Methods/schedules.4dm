@@ -145,7 +145,7 @@ scheduleCheck(sameReference($controller.worker; $b); "enqueue-after-response-own
 $controller.terminate()
 
 $controller:=cs.Schedule.new($CLI; [$a; $b])
-$controller.execute(["a"; "b"])
+$controller.execute(["a"; "b"]; [Null; Null]; [Null; Null])
 $old:=$controller._active
 $controller._onExecute($b; {type: "response"}; $old)
 $controller._onComplete($b; {type: "termination"}; $old)
