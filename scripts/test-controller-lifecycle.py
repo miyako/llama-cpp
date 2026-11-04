@@ -20,17 +20,21 @@ SPEC.loader.exec_module(FIXTURE)
 
 SCHEDULE_IDS = {
     "reference-controls",
-    "response-dispatch", "old-termination", "final-release", "callbacks",
+    "response-defers-dispatch", "old-termination", "final-release", "callbacks",
     "context", "reuse", "handler-restoration", "old-handler-ownership",
-    "callback-before-dispatch",
-    "error-default-continue", "error-parallel-queues", "error-old-termination",
+    "callback-before-dispatch", "termination-before-dispatch",
+    "error-awaits-termination", "error-default-continue", "error-parallel-queues", "error-old-termination",
     "error-final-release", "error-later-execute", "stale-generation",
     "explicit-abort", "abort-parallel-queues", "very-late-termination",
     "duplicate-termination", "lifecycle-release", "worker-argument-ownership",
     "callback-abort", "callback-enqueue", "callback-abort-enqueue",
     "callback-terminate", "callback-restart", "false-return-ignored",
     "error-callback-abort", "error-abort-termination", "nonzero-callback-abort",
-    "enqueue-after-response", "enqueue-after-response-ownership",
+    "enqueue-awaits-termination", "enqueue-after-response-ownership",
+    "no-termination-handler",
+    *{f"termination-{mode}-{check}"
+      for mode in ("abort", "enqueue", "abort-enqueue", "terminate", "restart", "continue")
+      for check in ("callback", "result", "stale")},
     *{f"reentrant-{mode}-{check}"
       for mode in ("abort", "enqueue", "abort-enqueue", "terminate", "restart", "continue")
       for check in ("callback", "duplicate")},
@@ -46,12 +50,13 @@ REJECTION_IDS = {
     "constructor-callback-order", "worker-owner-lifetime",
 }
 LIFECYCLE_IDS = {
+    "persistent-synthetic-error-awaits-termination",
     "persistent-synthetic-error-continue", "persistent-synthetic-old-termination",
     "persistent-synthetic-final-release", "persistent-synthetic-error-abort",
-    "persistent-synthetic-callbacks", "abort-does-not-terminate",
+    "persistent-synthetic-callbacks", "persistent-synthetic-interrupted-notification",
+    "abort-does-not-terminate",
     "native-nonzero-abort-before-sideeffect", "native-no-handler-continues",
-    "native-abort-preserves-callbacks", "callback-unwind-no-dispatch",
-    "unwind-handler-unchanged", "callback-resume-continues",
+    "native-abort-preserves-callbacks", "callback-resume-continues",
     "resume-handler-unchanged", "persistent-late-sideeffects",
     "persistent-native-cleanup", "persistent-lifecycle-owner",
 }
@@ -178,6 +183,9 @@ def validate_rejection(report, original, *, compiled_mode=True):
         if (response.get("pid") != termination.get("pid")
                 or termination.get("exitCode") != 0):
             raise RuntimeError("Worker argument identity or successful exit changed")
+    if (events[7].get("currentPID") != events[6].get("pid")
+            or events[7].get("currentPID") == events[8].get("pid")):
+        raise RuntimeError("Next worker launched before the termination callback returned")
     cleanup = report.get("cleanup", [])
     if len(cleanup) != 5 or any(worker.get("terminated") is not True for worker in cleanup):
         raise RuntimeError("Directly owned test workers did not terminate")
@@ -194,8 +202,7 @@ def validate_lifecycle(report):
             or not owner.get("name")):
         raise RuntimeError("Missing persistent lifecycle owner")
     cases = report.get("cases", [])
-    names = ("nonzero-abort", "no-handler", "abort-active",
-             "callback-unwind", "callback-resume")
+    names = ("nonzero-abort", "no-handler", "abort-active", "callback-resume")
     if [case.get("name") for case in cases] != list(names):
         raise RuntimeError("Missing persistent lifecycle native controls")
     processes = [report.get("reportProcess", {})]
@@ -213,11 +220,10 @@ def validate_lifecycle(report):
     processes.extend(event.get("process", {}) for event in simulated)
     expected_names = (
         ["response", "termination"], ["termination", "termination"],
-        ["response", "termination"], ["response", "termination"],
+        ["response", "termination"],
         ["response", "termination", "response", "termination"],
     )
-    expected_handlers = ("probeError", "probeError", "probeError",
-                         "lifecycleAbort", "lifecycleResume")
+    expected_handlers = ("probeError", "probeError", "probeError", "lifecycleResume")
     pids = set()
     for index, (case, expected, handler) in enumerate(
         zip(cases, expected_names, expected_handlers)
@@ -243,22 +249,32 @@ def validate_lifecycle(report):
             if errors or case.get("returned") != 0:
                 raise RuntimeError("Unexpected callback errors")
         else:
-            if len(errors) != 1 or case.get("returned") != index - 3:
-                raise RuntimeError("ABORT and intentional resumption were not distinguished")
+            if len(errors) != 1 or case.get("returned") != 1:
+                raise RuntimeError("Intentional caller error resumption did not return normally")
             error = errors[0]
             stack = error.get("errors", [])
             if (len(stack) != 1 or stack[0].get("errCode") != 2
                     or stack[0].get("componentSignature") != "POSX"
-                    or error.get("handler") != handler):
+                    or error.get("handler") != handler
+                    or error.get("number") != owner.get("number")
+                    or error.get("method") != "LifecycleProbe.response"):
                 raise RuntimeError("Original callback error did not reach caller's handler")
             processes.append(error.get("process", {}))
-    if cases[0]["events"][0].get("exitCode") != 1:
+    if cases[0]["events"][1].get("exitCode") != 1:
         raise RuntimeError("Native nonzero abort did not observe exit 1")
+    if report.get("sideEffectObserved") is not False:
+        raise RuntimeError("An aborted dependent command produced a native side effect")
+    if any(event.get("exitCode") != 0 for event in cases[1]["events"]):
+        raise RuntimeError("No-handler native success queue did not exit zero")
+    for case in cases:
+        for event in case["events"]:
+            if event["name"] == "termination" and event.get("activePID") != event.get("pid"):
+                raise RuntimeError("Termination callback did not retain the terminating owner")
     for process in processes:
         if any(process.get(key) != owner.get(key) for key in ("ID", "number", "name", "type")):
             raise RuntimeError("Lifecycle callback/turn owner identity changed")
     cleanup = report.get("cleanup", [])
-    if (len(cleanup) != 9 or any(worker.get("terminated") is not True for worker in cleanup)
+    if (len(cleanup) != 8 or any(worker.get("terminated") is not True for worker in cleanup)
             or not pids.issubset({worker.get("pid") for worker in cleanup})):
         raise RuntimeError("Lifecycle test workers did not terminate")
 

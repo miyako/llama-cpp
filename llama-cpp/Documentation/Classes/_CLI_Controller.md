@@ -9,7 +9,7 @@
 
 ## Description
 
-`_CLI_Controller` serializes an ordered queue of shell commands, executing each one in its own `4D.SystemWorker`. Private bookkeeping advances after either a response or an execution error, independently of public event forwarding. The owning `_CLI` exposes it through its `controller` getter.
+`_CLI_Controller` serializes an ordered queue of shell commands, executing each one in its own `4D.SystemWorker`. Private bookkeeping handles either a response or an execution error, then advances only after the termination callback returns, independently of public event forwarding. The owning `_CLI` exposes it through its `controller` getter.
 
 The [4D 20 contract](https://developer.4d.com/docs/20/API/SystemWorkerClass)
 delivers `onError` once **or** `onResponse` once, then `onTerminate` always.
@@ -28,7 +28,7 @@ native controls; supporting that documented branch does not claim a native repro
 | currentDirectory | 4D.Folder | Inherited from the owning `_CLI` |
 | SYSTEM_WORKER_CONTEXT | Object | Key-value store keyed by worker PID for per-command context |
 | complete | Boolean | `True` when the command queue has been fully drained |
-| worker | 4D.SystemWorker | The currently running worker (`Null` when idle) |
+| worker | 4D.SystemWorker | Current accepted worker, retained through its termination callback (`Null` when idle) |
 | commands | Collection | Pending command strings |
 
 ### Event callbacks
@@ -40,8 +40,8 @@ The following properties may be set to `4D.Function` values before calling `exec
 | onData | ($worker; $params) | Fired when the worker emits stdout data |
 | onDataError | ($worker; $params) | Fired when the worker emits stderr data |
 | onError | ($worker; $params) | Optional execution-error callback, before the next queued command |
-| onResponse | ($worker; $params) | Optional response callback, before the next queued command; inspect `worker.exitCode` to distinguish nonzero exits |
-| onTerminate | ($worker; $params) | Fired when the worker terminates |
+| onResponse | ($worker; $params) | Optional response callback, before the next queued command |
+| onTerminate | ($worker; $params) | Fired when the worker terminates, before the next queued command; normal `exitCode` is available here |
 
 Callbacks keep the controller as `This` and the original worker and event objects
 as arguments. Response and error events receive the accepted command's `context`;
@@ -51,10 +51,17 @@ not notify twice or release a newer worker, including when a callback terminates
 and restarts the controller.
 
 **Ordering migration:** previously, the response handler launched the next command
-before calling the saved public `onResponse`. Now the optional response/error
-callback runs first. After it returns, private bookkeeping rechecks ownership and
-the current queues. Callback code must not assume a dependent command has already
-started. Enqueueing in the callback is supported; `terminate()` followed by
+before calling the saved public `onResponse`. Now response/error notifications
+stay at their native timing, and **queue progression waits until the optional
+public `onTerminate` callback returns**. That callback can inspect the real native
+exit status and abort dependents before they have any side effect. During
+termination notification for the current generation, `controller.worker` still
+identifies the terminating worker, not the next command's worker. A delayed
+termination after explicit restart still passes the old worker as its argument;
+`controller.worker` then identifies the replacement. After normal callback return, private
+bookkeeping rechecks generation ownership and all pending queues before release
+and dispatch. Callback code must not assume a dependent command has already
+started. Enqueueing in callbacks is supported; `terminate()` followed by
 `execute()` explicitly starts a new generation without an extra old-generation
 dispatch.
 
@@ -69,14 +76,23 @@ not swallow or translate callback errors. A callback which returns normally,
 including after a caller's handler deliberately resumes execution, authorizes
 continuation. Such a handler must explicitly call `abortQueue()` if it considers
 the callback failed. A callback interrupted by `ABORT` cannot authorize a next
-launch; if its owner survives and receives termination, private cleanup discards
-pending work and releases only that dispatch. The controller cannot guarantee
+launch. For an interrupted response/error notification, if its owner survives
+and receives termination, private cleanup discards pending work and releases
+only that dispatch after notification. The controller cannot guarantee
 callbacks or cleanup after caller code destroys the owning process. Termination
-cleanup occurs before the public termination notification.
+notification itself must return normally to authorize queued progression.
 
 Quiet default stdout/stderr handlers and `_llama_Controller`'s deliberate lack
 of aggregate response/error forwarding are unchanged. No output buffering or
 default aggregate response notification is added.
+
+**Native exit-status timing:** the compiled 20.8 controls observe no `exitCode`
+on the worker during `onResponse`; the response event itself contains only
+`type`. A normal exit code becomes available at `onTerminate`. Do not infer a
+nonzero exit from an undefined value or from response output. Inspecting
+`worker.exitCode` in `onResponse` is not a supported native status-abort example.
+For abnormal termination the code can remain undefined; applications must choose
+their own policy for that case rather than treating it as a numeric status.
 
 ### Methods
 
@@ -110,7 +126,7 @@ exact 20.7 execution requires separate evidence.
 
 This narrow rule does not repair previously corrupted/nonempty idle controllers,
 or guarantee recovery from rejection of a later command dispatched
-from an earlier worker's response. Those ownership/error-policy cases remain
+after an earlier worker's termination. Those ownership/error-policy cases remain
 separate. Do not retry a controller already left with installed wrappers by older
 code; use a fresh controller with the corrected source.
 
@@ -130,9 +146,11 @@ binding is required:
 Function onError($worker : 4D.SystemWorker; $params : Object)
     This.abortQueue()
 
-Function onResponse($worker : 4D.SystemWorker; $params : Object)
-    If ($worker.exitCode#0)
-        This.abortQueue()
+Function onTerminate($worker : 4D.SystemWorker; $params : Object)
+    If ([This.worker].indexOf($worker)=0) && ([Is real; Is integer].includes(Value type($worker.exitCode)))
+        If ($worker.exitCode#0)
+            This.abortQueue()
+        End if
     End if
 ```
 

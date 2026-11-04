@@ -18,11 +18,13 @@ $CLI:=cs._CLI.new()
 var $controller : cs.Schedule
 $controller:=cs.Schedule.new($CLI; [$a; $b])
 $controller.onResponse:=Formula($report.traces.push({name: "response"; receiver: sameReference(This; $controller); pid: $1.pid; context: $2.context; launches: This.launches}))
-$controller.onTerminate:=Formula($report.traces.push({name: "termination"; receiver: sameReference(This; $controller); pid: $1.pid}))
+$controller.onTerminate:=Formula($report.traces.push({name: "termination"; receiver: sameReference(This; $controller); pid: $1.pid; launches: This.launches}))
 $controller.execute(["a"; "b"]; ["message-a"; "message-b"]; ["context-a"; "context-b"])
 $controller._onExecute($a; {type: "response"})
 scheduleCheck($report.traces[0].launches=1; "callback-before-dispatch"; $report; "regression")
-scheduleCheck(sameReference($controller.worker; $b) && ($controller.launches=2) && Not($controller.complete); "response-dispatch"; $report; "regression")
+scheduleCheck(sameReference($controller.worker; $a) && ($controller.launches=1) && Not($controller.complete); "response-defers-dispatch"; $report; "regression")
+$controller._onComplete($a; {type: "termination"})
+scheduleCheck($report.traces[1].launches=1; "termination-before-dispatch"; $report; "regression")
 $controller._onComplete($a; {type: "termination"})
 scheduleCheck(sameReference($controller.worker; $b); "old-termination"; $report; "regression")
 scheduleCheck(sameReference($controller.onResponse; $controller._onExecute) && sameReference($controller.onTerminate; $controller._onComplete); "old-handler-ownership"; $report; "regression")
@@ -44,6 +46,8 @@ $controller.execute(["failed"; "pending"]; ["failed-message"; "pending-message"]
 var $old : Object
 $old:=$controller._active
 $controller._onInitialEvent({lifecycle: $old}; $a; {type: "error"}; "onError")
+scheduleCheck(sameReference($controller.worker; $a) && ($controller.launches=1); "error-awaits-termination"; $report; "regression")
+$controller._onComplete($a; {type: "termination"})
 scheduleCheck(sameReference($controller.worker; $b) && ($controller.launches=2); "error-default-continue"; $report; "regression")
 scheduleCheck(($controller.commands.length=0) && ($controller._messages.length=0) && ($controller._contexts.length=0) && ($controller.SYSTEM_WORKER_CONTEXT[String($b.pid)]="pending-context"); "error-parallel-queues"; $report; "regression")
 $controller._onComplete($a; {type: "termination"})
@@ -63,10 +67,13 @@ scheduleCheck(($controller.worker=Null) && ($controller.commands.length=0) && $c
 scheduleCheck(($controller._messages.length=0) && ($controller._contexts.length=0); "abort-parallel-queues"; $report; "regression")
 
 $controller:=cs.Schedule.new($CLI; [$a; $b])
+$controller.action:="restart"
+$controller.onResponse:=$controller.observe
 $controller.onTerminate:=Formula($report.traces.push({name: "late-termination"; pid: $1.pid}))
 $controller.execute(["a"; "b"]; [Null; Null]; ["a"; "b"])
 $old:=$controller._active
 $controller._onExecute($a; {type: "response"})
+$controller.action:=""
 $controller._onExecute($b; {type: "response"})
 $controller._onComplete($a; {type: "termination"})
 scheduleCheck(sameReference($controller.worker; $b) && $controller.complete; "very-late-termination"; $report; "regression")
@@ -91,9 +98,10 @@ For each ($mode; ["abort"; "enqueue"; "abort-enqueue"; "terminate"; "restart"; "
 	$old:=$controller._active
 	$controller._onExecute($a; $event)
 	scheduleCheck(($controller.observations.length=1) && ($controller.observations[0].launches=1) && $controller.observations[0].worker && $controller.observations[0].event && ($event.context="context-a"); "reentrant-"+$mode+"-callback"; $report; "regression")
+	$controller._onComplete($a; {type: "termination"}; $old)
 	Case of
 		: ($mode="abort")
-			scheduleCheck(($controller.launches=1) && sameReference($controller.worker; $a) && ($controller.commands.length=0) && ($controller._messages.length=0) && ($controller._contexts.length=0) && $controller.complete; "callback-abort"; $report; "regression")
+			scheduleCheck(($controller.launches=1) && ($controller.worker=Null) && ($controller.commands.length=0) && ($controller._messages.length=0) && ($controller._contexts.length=0) && $controller.complete; "callback-abort"; $report; "regression")
 		: ($mode="enqueue")
 			scheduleCheck(($controller.launches=2) && sameReference($controller.worker; $b) && ($controller.commands.length=1) && ($controller._messages[0]="message-c") && ($controller._contexts[0]="context-c"); "callback-enqueue"; $report; "regression")
 		: ($mode="abort-enqueue")
@@ -139,9 +147,49 @@ $controller:=cs.Schedule.new($CLI; [$a; $b])
 $controller.execute("a")
 $controller._onExecute($a; {type: "response"})
 $controller.execute("after-response"; Null; "after-response")
-scheduleCheck(($controller.launches=2) && sameReference($controller.worker; $b); "enqueue-after-response"; $report; "regression")
+scheduleCheck(($controller.launches=1) && sameReference($controller.worker; $a) && ($controller.commands.length=1); "enqueue-awaits-termination"; $report; "regression")
 $controller._onComplete($a; {type: "termination"})
-scheduleCheck(sameReference($controller.worker; $b); "enqueue-after-response-ownership"; $report; "regression")
+scheduleCheck(($controller.launches=2) && sameReference($controller.worker; $b); "enqueue-after-response-ownership"; $report; "regression")
+$controller.terminate()
+
+For each ($mode; ["abort"; "enqueue"; "abort-enqueue"; "terminate"; "restart"; "continue"])
+	$controller:=cs.Schedule.new($CLI; [$a; $b])
+	$controller.action:=$mode
+	$controller.onTerminate:=$controller.observe
+	$controller.expectedWorker:=$a
+	$event:={type: "termination"; original: {}}
+	$controller.expectedEvent:=$event
+	$controller.execute(["a"; "b"]; ["message-a"; "message-b"]; ["context-a"; "context-b"])
+	$old:=$controller._active
+	$controller._onExecute($a; {type: "response"})
+	$controller._onComplete($a; $event)
+	scheduleCheck(($controller.observations.length=1) && ($controller.observations[0].launches=1) && $controller.observations[0].worker && $controller.observations[0].event; "termination-"+$mode+"-callback"; $report; "regression")
+	Case of
+		: ($mode="abort") || ($mode="terminate")
+			scheduleCheck(($controller.launches=1) && ($controller.worker=Null) && ($controller.commands.length=0) && ($controller._messages.length=0) && ($controller._contexts.length=0); "termination-"+$mode+"-result"; $report; "regression")
+		: ($mode="enqueue")
+			scheduleCheck(($controller.launches=2) && sameReference($controller.worker; $b) && ($controller.commands.length=1) && ($controller._messages[0]="message-c") && ($controller._contexts[0]="context-c"); "termination-"+$mode+"-result"; $report; "regression")
+		: ($mode="abort-enqueue")
+			scheduleCheck(($controller.launches=2) && sameReference($controller.worker; $b) && ($controller.commands.length=0) && ($controller.SYSTEM_WORKER_CONTEXT[String($b.pid)]="replacement-context"); "termination-"+$mode+"-result"; $report; "regression")
+		: ($mode="restart")
+			scheduleCheck(($controller.launches=2) && sameReference($controller.worker; $b) && ($controller.SYSTEM_WORKER_CONTEXT[String($b.pid)]="restart-context"); "termination-"+$mode+"-result"; $report; "regression")
+		: ($mode="continue")
+			scheduleCheck(($controller.launches=2) && sameReference($controller.worker; $b); "termination-"+$mode+"-result"; $report; "regression")
+	End case
+	$count:=$controller.launches
+	$controller._onComplete($a; $event; $old)
+	$controller._onExecute($a; {type: "response"}; $old)
+	$controller._onFailure($a; {type: "error"}; $old)
+	scheduleCheck(($controller.launches=$count) && ($controller.observations.length=1); "termination-"+$mode+"-stale"; $report; "regression")
+	$controller.terminate()
+End for each
+
+$controller:=cs.Schedule.new($CLI; [$a; $b])
+$controller.onTerminate:=Null
+$controller.execute(["a"; "b"]; [Null; Null]; [Null; Null])
+$controller._onExecute($a; {type: "response"})
+$controller._onComplete($a; {type: "termination"})
+scheduleCheck(($controller.launches=2) && sameReference($controller.worker; $b); "no-termination-handler"; $report; "regression")
 $controller.terminate()
 
 $controller:=cs.Schedule.new($CLI; [$a; $b])

@@ -17,9 +17,13 @@ Response/error lifecycle bookkeeping is private in `_CLI_Controller` and does
 not depend on forwarding either event here. Aggregate `onResponse` forwarding
 remains disabled by default; stdout/stderr handling and buffering are unchanged.
 To discard dependent commands, an existing custom controller override can call
-`This.abortQueue()` from `onError` or from `onResponse` on a nonzero exit.
+`This.abortQueue()` from `onError` or from `onResponse` using application criteria.
 These callbacks run **before** the next queued command, unlike the former
 response ordering. Return values such as `False` do not abort the queue.
+On the tested 20.8 engine, native `exitCode` is not available during `onResponse`;
+do not use an undefined value as proof of nonzero exit. Queue progression now
+waits until `onTerminate` returns, so this existing callback can inspect normal
+native exit status and call `This.abortQueue()` before dependents start.
 See the parent's [callback and error policy](_CLI_Controller.md#event-callbacks).
 
 ### Overridden event callbacks
@@ -36,6 +40,13 @@ The following callbacks are declared (but intentionally left as no-ops) and may 
 #### onTerminate ($worker : 4D.SystemWorker; $params : Object)
 
 Called when the managed `SystemWorker` terminates. Looks up `onTerminate` on the owning `_server` instance and calls it if present.
+
+The receiver remains the controller. For the current generation its `worker`
+still identifies the terminating worker; the next queued worker is not constructed
+until the callback returns normally. Explicit terminate/restart replaces the
+generation and prevents old completion from dispatching again. A delayed old
+termination retains its original worker argument even if `controller.worker`
+already identifies a replacement.
 
 | Parameter | Type | | Description |
 | --- | --- | --- | --- |

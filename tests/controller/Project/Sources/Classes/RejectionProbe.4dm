@@ -167,7 +167,7 @@ Function tick()
 					var $old : Boolean
 					$old:=False
 					If ($events.length=4)
-						$old:=($events[1].currentPID=$events[2].pid) && Not($events[1].complete)
+						$old:=($events[1].currentPID=$events[0].pid) && ($events[1].currentPID#$events[2].pid) && Not($events[1].complete)
 					End if
 					scheduleCheck($old; "native-old-termination"; This.report; "regression")
 					This.phase:="late"

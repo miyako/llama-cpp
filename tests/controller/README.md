@@ -6,8 +6,10 @@ supports that explicit documented 4D 20 contract branch without requiring a
 native OS-failure trigger. The separately merged #22/#23 synchronous rejection
 transaction and its 17 persistent-worker checks remain required.
 
-The approved policy is default continuation after response/error, with an
-optional existing public callback **before** the next command's side effects.
+The approved policy is default continuation after response/error **and native
+termination**. Native response/error notifications keep their original timing;
+queued progression waits until the optional existing `onTerminate` callback
+returns, **before** the next command's side effects.
 `abortQueue()` clears pending commands/messages/contexts without terminating
 the current worker or suppressing termination. `False` returns are ignored.
 No facade response/error forwarding or stream/output-buffering change is made.
@@ -18,7 +20,8 @@ Original callback error routing is preserved: production installs no handler.
 An intentionally resumed callback counts as normal return and may explicitly
 abort the queue. An interrupted callback does not authorize dispatch; termination
 cleans up if the owner survives. No callback or cleanup is promised after caller
-code destroys that owner. See the production
+code destroys that owner. The supported positive suite does not replay the
+destructive ABORT attempt described below. See the production
 [ordering migration and callback policy](../../llama-cpp/Documentation/Classes/_CLI_Controller.md).
 
 ```sh
@@ -48,27 +51,30 @@ The deterministic/native-controller schedules are classified deliberately:
 
 | Kind | Evidence |
 | --- | --- |
-| `regression` | Response/error notification before B dispatch; default continuation/no handler/ignored False; explicit abort of all pending queues; receiver/original arguments/context/error fields; reentrant enqueue/abort/terminate/restart; duplicate/stale/generation/worker ownership; very late A termination preserving completed B; handler restoration/reuse; native success/nonzero/timeout drain/reuse |
+| `regression` | Native-timed response/error, then termination notification before B dispatch; default continuation/no handler/ignored False; explicit abort of all pending queues; receiver/original arguments/context/error fields; reentrant response and termination enqueue/abort/terminate/restart; duplicate/stale/generation/worker ownership; delayed A termination after explicit restart preserving B; handler restoration/reuse; native success/nonzero/timeout drain/reuse |
 | `candidate` | None in the current corrected schedules. The six old gap characterizations have deliberately become positive regressions; this does not promote synthetic events to native proof. |
 
 The `LifecycleProbe` retains its controllers in a uniquely named dedicated worker
 after startup returns. Later mailbox turns simulate accepted error/no-response
 continuation and callback abort using retired typed native identities. These
-events remain **manual simulation**. Native controls separately check nonzero
-response abort before a queued `/usr/bin/touch` can create a disposable marker;
+events remain **manual simulation**, including interrupted-notification state.
+Native controls separately check nonzero **termination** abort before a queued
+`/usr/bin/touch` can create a disposable marker;
 no-handler continuation; aborting a still-running sleep without termination;
 and preserved callbacks/late-event absence. The marker is checked again after
 a bounded late window, not merely inferred from a controller launch count.
 
-Two fixture-only local handlers exercise the approved callback-error policy.
+The fixture-only resumptive local handler exercises the approved callback-error policy.
 The callback deliberately attempts a missing native executable (synchronous
-POSX2, **not** native `onError`). One handler records the original stack and calls
-`ABORT`; if the owner survives, termination must discard dependents with no marker.
-The other deliberately resumes, so normal return must continue the queue.
-Both preserve original worker/event receivers, handler selection and owner
-identity. Production never installs or changes these handlers. A killed owner,
-missing report or driver timeout cannot be reported as a successful surviving-owner
-test. The fixture restores its handler outside the error-handling method.
+POSX2, **not** native `onError`). The handler records the original stack and actual
+process identity through the invocation's unique report path, then deliberately
+resumes; normal return must continue after termination. Production never
+installs or changes that handler. A separate earlier negative ABORT attempt did
+not preserve later owner execution and is retained as a boundary, not a positive
+test. `lifecycleAbort` is retained only to bind that historical failed probe;
+the supported suite never installs it again. A killed owner, missing report or
+driver timeout cannot count as a successful surviving-owner test. The fixture
+restores its handler outside the error-handling method.
 
 A completed compiled run emits `summary.json` with
 `syntheticAcceptedLifecycleRegressionVerified:true`,
@@ -93,8 +99,8 @@ process-scoped `RejectionProbe` retains the controller and public callback
 identities after startup returns. Seventeen checks cover missing-single,
 missing-first-of-batch, repeated failures, original POSX2 error stacks, all three
 queues, unchanged saved/public handlers and context map, three actual harmless
-reuses, a two-command native queue, old termination while the next worker is
-incomplete, callback receiver/context/constructor ordering, owner identity,
+reuses, a two-command native queue, termination notification before construction
+of the next worker, callback receiver/context/constructor ordering, owner identity,
 a late-event window and directly owned native-worker termination.
 
 **The baseline guard is before reuse:** if failure state or the original error
@@ -134,8 +140,8 @@ merely to obtain a green run.
 
 The [4D 20](https://developer.4d.com/docs/20/API/SystemWorkerClass) contract
 specifies `onError` once or `onResponse` once, followed by termination, and
-distinguishes constructor rejection. The approved implementation advances after
-either, regardless of exit code, unless callback code explicitly aborts.
+distinguishes constructor rejection. The approved implementation advances after either result and termination,
+regardless of exit code, unless callback code explicitly aborts.
 Private identity-owned cleanup prevents old termination releasing a newer worker.
 
 Reference workers 20.0.19 (`d58fcbd64eb050fcba658bf576ba18f24c51fad4`) creates a new `_server`/controller when its stored native worker is terminated. Direct controller retention therefore does not prove a public facade restart failure. Production `latest` dependency declarations are unresolved here; the reference source is not proof of installed artifact behavior.
@@ -162,6 +168,49 @@ never invokes publication. Hosted results must be read from the actual new run;
 the historical green #23 run does not validate this changed source.
 
 Exact 20.7, Windows 4D, actual accepted native error-without-response, facade scheduling, live-server readiness and inference remain unverified. Synthetic schedules, real 4D compilation, real compiled execution, and real accepted-native controls are distinct tiers. No merge or production rollout is implied by this investigation PR.
+
+## Diagnostic findings that required the approved timing migration
+
+Run [41757854630](https://github.com/miyako/llama-cpp/actions/runs/41757854630)
+at PR head `a4e0d0306188d91764806477dbc04c95ac62b09f` compiled cleanly on
+official pinned 20.8 build 102083 (`F0012008`). The native 2-check matrix,
+51 schedules and unchanged 17 rejection checks completed with clean exits.
+The new persistent lifecycle method **failed**: its nonzero-at-response assertion
+is false, and its ABORT attempt did not produce a later complete owner report.
+The strict gate remains red; no success summary exists.
+
+The tiny native `/usr/bin/true` and `/usr/bin/false` controls show exactly
+`{type:"response"}`, then `{type:"termination"}` as native event objects.
+`worker.exitCode` is undefined at response and becomes 0/1 at termination.
+The fixture must not treat a synthetic retired worker's already-known exit code,
+an undefined value, or stdout payload as native status-before-dispatch proof.
+The user explicitly approved keeping response notification at native timing and
+advancing only after the existing termination callback. The revised patch tests
+nonzero abortion there, rather than fabricating response-time status.
+Those source/fixture changes require a new hosted run; the earlier 51-check
+passes do not verify the revised 72-check progression.
+
+The ABORT fixture's handler captured original POSX2, current process 2 and
+`LifecycleProbe.response` as the error source, but later queued owner ticks
+did not execute, even when enqueued before yielding. The driver timed out.
+This is an observed owner/control-flow boundary, **not** a successful
+surviving-owner unwind cleanup test or proof of the owner's exact final state.
+The failing attempt is retained; no unchanged destructive-ABORT retry is justified.
+The current approval preserves caller handlers and promises no callback/cleanup
+after caller code destroys the owner.
+
+Earlier run
+[41757343167](https://github.com/miyako/llama-cpp/actions/runs/41757343167)
+compiled and emitted all 51 true assertions but correctly failed on an unexpected
+`Undefined collection` artifact. The new fixture batch now explicitly supplies
+aligned message/context arrays rather than exercising the pre-existing omitted
+collection-input branch. Run
+[41757484042](https://github.com/miyako/llama-cpp/actions/runs/41757484042)
+then passed those schedules and original rejection checks, but exposed fixture
+identity deep-copying and an invalid process-variable assumption in its error
+handler. Native identities are now passed by reference; error handlers capture
+through the invocation's unique report path. No diagnostic or clean-exit gate
+was waived.
 
 ## Historical baseline evidence (before issue #24 implementation)
 

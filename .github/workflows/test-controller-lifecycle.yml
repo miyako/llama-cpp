@@ -63,11 +63,11 @@ jobs:
         run: |
           {
             echo '## Accepted-worker lifecycle verification — Refs #24'
-            echo 'Response/error private bookkeeping continues by default; optional user notification precedes the next command; explicit abortQueue clears all pending queues without native termination.'
+            echo 'Native response/error notifications keep their timing; queue progression waits until user onTerminate returns, allowing native exit-code abortion before any dependent sideeffect. Default is continue; abortQueue clears all pending queues without native termination.'
             echo 'Required gates: diagnostics-free 20.8 compilation; four fresh compiled reports; clean engine exits.'
             echo 'The original 17 persistent-worker rejection checks still guard clean state BEFORE any reuse.'
-            echo 'Accepted-error schedules remain manual simulation. Native response controls independently verify default continuation, nonzero abort before sideeffects, active-worker abort and callback-error routing in a surviving owner.'
-            echo 'A deliberately resumed callback counts as normal return. Production installs no error handler; no cleanup guarantee is made after caller code destroys the owner.'
+            echo 'Accepted-error/interrupted-notification schedules remain manual simulation. Native controls independently verify default continuation, nonzero termination abort before sideeffects, active-worker abort and deliberately resumptive callback-error routing in a surviving owner.'
+            echo 'A deliberately resumed callback counts as normal return. Production installs no error handler; the prior failed destructive-ABORT attempt remains a documented owner boundary, not a repeated positive test or a cleanup promise after owner death.'
             echo 'Accepted native error-without-response remains unestablished. Missing-executable POSX2 is synchronous rejection, including when deliberately triggered inside a callback.'
             echo 'Read retained reports and engine exits; a passing JSON report followed by a shutdown crash is a failure, not a runtime pass.'
           } >> "$GITHUB_STEP_SUMMARY"

@@ -91,13 +91,10 @@ Function execute($command : Variant; $message : Variant; $context : Variant) : c
 			This:C1470._commands.combine($commands)
 			This:C1470._messages.combine($messages)
 			This:C1470._contexts.combine($contexts)
+			This:C1470._complete:=False:C215
 
 			If (This:C1470._worker=Null:C1517)
 				This:C1470._execute()
-			Else
-				If (This:C1470._active.terminal) && (Not:C34(This:C1470._active.notifying)) && (Not:C34(This:C1470._active.terminated))
-					This:C1470._execute()
-				End if
 			End if
 		End if 
 		
@@ -188,12 +185,9 @@ Function _onTerminal($worker : 4D:C1709.SystemWorker; $params : Object; $lifecyc
 	End if
 	$lifecycle.notifying:=False:C215
 
-	// A callback may cancel, replace the owner, or change all three pending queues.
-	If (This:C1470._owns($lifecycle)) && (Not:C34($lifecycle.terminated))
+	If (This:C1470._owns($lifecycle))
 		If (This:C1470._commands.length=0)
 			This:C1470._abort()
-		Else
-			This:C1470._execute()
 		End if
 	End if
 
@@ -318,15 +312,26 @@ Function _onComplete($worker : 4D:C1709.SystemWorker; $params : Object; $lifecyc
 	End if
 	$lifecycle.terminated:=True:C214
 	This:C1470._lifecycles.remove($index)
-	If (This:C1470._owns($lifecycle))
+	If (This:C1470._owns($lifecycle)) && (($lifecycle.notifying) || (Not:C34($lifecycle.terminal)))
 		// An interrupted notification never authorizes another launch.
 		This:C1470.abortQueue()
-		This:C1470._terminate()
 	End if
 	var $callback : 4D:C1709.Function
 	$callback:=$lifecycle.handlers.onTerminate
+	$lifecycle.notifying:=True:C214
 	If (OB Instance of:C1731($callback; 4D:C1709.Function))
 		$callback.call(This:C1470; $worker; $params)
+	End if
+	$lifecycle.notifying:=False:C215
+
+	// Termination exposes the native exit status; user code decides before dispatch.
+	If (This:C1470._owns($lifecycle))
+		This:C1470._terminate()
+		If (This:C1470._commands.length=0)
+			This:C1470._abort()
+		Else
+			This:C1470._execute()
+		End if
 	End if
 
 Function _abort()

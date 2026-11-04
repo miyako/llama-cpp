@@ -52,7 +52,7 @@ Function next()
 	This.controller:=cs._CLI_Controller.new(cs._CLI.new())
 	This.controller.timeout:=2
 	This.controller.onResponse:=Formula(lifecycleProbe.response(This; $1; $2))
-	This.controller.onTerminate:=Formula(lifecycleProbe.record("termination"; This; $1; $2))
+	This.controller.onTerminate:=Formula(lifecycleProbe.terminated(This; $1; $2))
 	This.caseReport:={name: ""; kind: "native-control"; events: []; callbackErrors: []; returned: 0}
 	This.report.cases.push(This.caseReport)
 	var $command; $dependent : Text
@@ -70,9 +70,6 @@ Function next()
 			This.phase:="abort-active"
 			$command:="/bin/sleep 0.4"
 		: (This.caseIndex=4)
-			This.phase:="callback-unwind"
-			ON ERR CALL("lifecycleAbort"; ek local)
-		: (This.caseIndex=5)
 			This.phase:="callback-resume"
 			$dependent:="/usr/bin/true"
 			ON ERR CALL("lifecycleResume"; ek local)
@@ -91,14 +88,24 @@ Function next()
 
 Function response($receiver : Object; $worker : 4D.SystemWorker; $event : Object)
 	This.record("response"; $receiver; $worker; $event)
-	If (This.phase="nonzero-abort") && ($worker.exitCode#0)
-		$receiver.abortQueue()
-	End if
-	If (["callback-unwind"; "callback-resume"].includes(This.phase)) && ($event.context="first")
+	If (This.phase="callback-resume") && ($event.context="first")
 		var $rejected : 4D.SystemWorker
 		$rejected:=4D.SystemWorker.new("/nonexistent/controller-callback-"+Generate UUID)
 		This.caseReport.returned+=1
 	End if
+
+Function terminated($receiver : Object; $worker : 4D.SystemWorker; $event : Object)->$result : Boolean
+	This.record("termination"; $receiver; $worker; $event)
+	If (This.phase="nonzero-abort")
+		If ([Is real; Is integer].includes(Value type($worker.exitCode)))
+			If ($worker.exitCode#0)
+				$receiver.abortQueue()
+			End if
+		Else
+			This.report.errors.push("native-exit-status-unavailable-at-termination")
+		End if
+	End if
+	$result:=False
 
 Function record($name : Text; $receiver : Object; $worker : 4D.SystemWorker; $event : Object)
 	If (This.workers.indexOf($worker)=-1)
@@ -126,9 +133,11 @@ Function tick()
 	Case of
 		: (This.phase="synthetic-continue")
 			This.schedule._onInitialEvent({lifecycle: This.old}; This.identities[0]; This.simulatedEvent; "onError")
-			scheduleCheck((This.schedule.launches=2) && sameReference(This.schedule.worker; This.identities[1]); "persistent-synthetic-error-continue"; This.report; "regression")
+			scheduleCheck((This.schedule.launches=1) && sameReference(This.schedule.worker; This.identities[0]); "persistent-synthetic-error-awaits-termination"; This.report; "regression")
 			This.phase:="synthetic-finish"
 		: (This.phase="synthetic-finish")
+			This.schedule._onComplete(This.identities[0]; {type: "termination"}; This.old)
+			scheduleCheck((This.schedule.launches=2) && sameReference(This.schedule.worker; This.identities[1]); "persistent-synthetic-error-continue"; This.report; "regression")
 			This.schedule._onComplete(This.identities[0]; {type: "termination"}; This.old)
 			scheduleCheck(sameReference(This.schedule.worker; This.identities[1]); "persistent-synthetic-old-termination"; This.report; "regression")
 			This.schedule._onExecute(This.identities[1]; {type: "response"})
@@ -144,6 +153,13 @@ Function tick()
 			scheduleCheck((This.schedule.launches=1) && (This.schedule.commands.length=0) && (This.schedule._messages.length=0) && (This.schedule._contexts.length=0); "persistent-synthetic-error-abort"; This.report; "regression")
 			This.schedule._onComplete(This.identities[0]; {type: "termination"})
 			scheduleCheck((This.report.simulated.length=2) && This.report.simulated.every(Formula($1.value.receiver && $1.value.worker && $1.value.event && ($1.value.launches=1) && ($1.value.context="context-a"))); "persistent-synthetic-callbacks"; This.report; "regression")
+			This.schedule:=cs.Schedule.new(cs._CLI.new(); [This.identities[0]; This.identities[1]])
+			This.schedule.execute(["a"; "b"]; ["message-a"; "message-b"]; ["context-a"; "context-b"])
+			// Manual interrupted-notification state, not an actual callback ABORT.
+			This.schedule._active.terminal:=True
+			This.schedule._active.notifying:=True
+			This.schedule._onComplete(This.identities[0]; {type: "termination"})
+			scheduleCheck((This.schedule.launches=1) && (This.schedule.worker=Null) && This.schedule.complete && (This.schedule.commands.length=0) && (This.schedule._messages.length=0) && (This.schedule._contexts.length=0); "persistent-synthetic-interrupted-notification"; This.report; "regression")
 			This.next()
 		: (This.phase="late")
 			If ((Milliseconds-This.windowStarted)>=500)
@@ -167,6 +183,7 @@ Function tick()
 					This.report.cleanup.push({pid: $owned.pid; terminated: $owned.terminated})
 				End for each
 				scheduleCheck($clean; "persistent-native-cleanup"; This.report; "regression")
+				This.report.sideEffectObserved:=This.marker.exists
 				This.report.reportProcess:=rejectionProcess
 				scheduleCheck((This.report.turns.length>5) && (This.report.ownerProcess.ID=This.report.reportProcess.ID) && (This.report.ownerProcess.number#1); "persistent-lifecycle-owner"; This.report; "regression")
 				This.report.complete:=True
@@ -182,7 +199,7 @@ Function tick()
 				$valid:=This.empty() && (This.controller._lifecycles.length=0)
 				Case of
 					: (This.phase="nonzero-abort")
-						$valid:=$valid && (This.caseReport.events.length=2) && (This.caseReport.events[0].exitCode=1) && Not(This.marker.exists)
+						$valid:=$valid && (This.caseReport.events.length=2) && (This.caseReport.events[1].exitCode=1) && Not(This.marker.exists)
 						scheduleCheck($valid; "native-nonzero-abort-before-sideeffect"; This.report; "regression")
 					: (This.phase="no-handler")
 						$valid:=$valid && (This.caseReport.events.length=2) && This.caseReport.events.every(Formula($1.value.name="termination"))
@@ -190,14 +207,6 @@ Function tick()
 					: (This.phase="abort-active")
 						$valid:=$valid && (This.caseReport.events.length=2) && Not(This.marker.exists)
 						scheduleCheck($valid; "native-abort-preserves-callbacks"; This.report; "regression")
-					: (This.phase="callback-unwind")
-						If (File(This.path+".callback-abort.json").exists)
-							This.caseReport.callbackErrors.push(JSON Parse(File(This.path+".callback-abort.json").getText()))
-						End if
-						$valid:=$valid && (This.caseReport.events.length=2) && (This.caseReport.callbackErrors.length=1) && (This.caseReport.returned=0) && Not(This.marker.exists)
-						scheduleCheck($valid; "callback-unwind-no-dispatch"; This.report; "regression")
-						scheduleCheck(Method called on error(ek local)="lifecycleAbort"; "unwind-handler-unchanged"; This.report; "regression")
-						ON ERR CALL("probeError"; ek local)
 					: (This.phase="callback-resume")
 						If (File(This.path+".callback-resume.json").exists)
 							This.caseReport.callbackErrors.push(JSON Parse(File(This.path+".callback-resume.json").getText()))
@@ -207,10 +216,10 @@ Function tick()
 						scheduleCheck(Method called on error(ek local)="lifecycleResume"; "resume-handler-unchanged"; This.report; "regression")
 						ON ERR CALL("probeError"; ek local)
 				End case
-				If (This.caseIndex<5)
+				If (This.caseIndex<4)
 					This.next()
 				Else
-					This.lateEvents:=12
+					This.lateEvents:=10
 					This.phase:="late"
 					This.windowStarted:=Milliseconds
 				End if
