@@ -33,7 +33,7 @@ Function start($option : Object) : 4D:C1709.SystemWorker
 		$key:=Replace string:C233($arg.key; "_"; "-"; *)
 		Case of 
 			: ($valueType=Is real:K8:4)
-				$command+=(" --"+$key+" "+String:C10($arg.value)+" ")
+				$command+=(" --"+$key+" "+_argNumber($arg.value)+" ")
 			: ($valueType=Is text:K8:3)
 				$command+=(" --"+$key+" "+This:C1470.escape($arg.value)+" ")
 			: ($valueType=Is boolean:K8:9) && ($arg.value)
@@ -48,7 +48,7 @@ Function start($option : Object) : 4D:C1709.SystemWorker
 					$valueTypeValue:=Value type:C1509($value)
 					Case of 
 						: ($valueTypeValue=Is real:K8:4)
-							$command+=(" --"+$key+" "+String:C10($value)+" ")
+							$command+=(" --"+$key+" "+_argNumber($value)+" ")
 						: ($valueTypeValue=Is text:K8:3)
 							$command+=(" --"+$key+" "+This:C1470.escape($value)+" ")
 						: ($valueTypeValue=Is boolean:K8:9) && ($value)

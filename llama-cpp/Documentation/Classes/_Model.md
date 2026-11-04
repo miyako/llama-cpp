@@ -15,7 +15,7 @@
 
 `_Model` is the concrete implementation of [`_models`](_models.md). After calling `Super` it immediately triggers `download()` unless `offline` is `true`.
 
-It overrides three methods from `_models`:
+It overrides these methods from `_models`:
 
 ### _isRouterMode () → Boolean
 
@@ -34,9 +34,13 @@ Overrides the virtual base. When a pending file completes, it sets `options.mode
 | oid | Text | -> | OID of the completed download |
 | downloadId | Text | -> | Optional internal destination identity; OID-only calls remain supported |
 
+### _onNothingToDownload ()
+
+Called by `download()` when no file needs downloading. In router mode it does nothing, because the `start` method launches router configurations. Otherwise it calls `start()` when `options.model` is an existing `4D.File`; if not, it calls `event.onError` with code `2` (including the path when one was given) and does not launch.
+
 ### start ()
 
-Overrides the virtual base. Refuses a failed integrity attempt and defers an online start while any managed SHA-256 verification is pending. Otherwise creates a `cs.workers.worker` wrapping `_server`, calls `worker.start(port, options)`, then fires `event.onSuccess` with receiver `model` and arguments `(options; models())`.
+Overrides the virtual base. Launches at most once per instance; later calls are ignored. Refuses a failed integrity attempt and defers an online start while any managed SHA-256 verification is pending. Otherwise creates a `cs.workers.worker` wrapping `_server`, calls `worker.start(port, options)`, then fires `event.onSuccess` with receiver `model` and arguments `(options; models())`.
 
 The callback retains its existing **launch-request** meaning: it does not prove that the server is listening, healthy, or ready for inference. Offline/local and router configurations without managed metadata retain their explicitly unverified startup behavior; this gate does not enumerate or hash arbitrary files in a router directory.
 

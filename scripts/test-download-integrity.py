@@ -101,6 +101,8 @@ def prepare(directory, baseline, hash_component):
             (classes / f"{name}.4dm").write_bytes(original)
         else:
             shutil.copy2(ROOT / relative, classes)
+    if not baseline:
+        shutil.copy2(ROOT / "llama-cpp/Project/Sources/Methods/_argNumber.4dm", fixture / "Project/Sources/Methods")
     if baseline:
         (fixture / "Resources/baseline").touch()
     return fixture, anchor
@@ -238,7 +240,7 @@ def main():
     else:
         if args.compile and result.get("compiledMode") is not True:
             raise RuntimeError("4D silently fell back from compiled execution")
-        if result.get("passed", 0) != 44:
+        if result.get("passed", 0) != 45:
             raise RuntimeError("Integrity assertions did not all execute")
         print("PASS: real 4D integrity execution; model transfer/server are controlled doubles.")
         print("Hash dependency: " + ("supplied component" if hash_component else "small-file 4D double"))

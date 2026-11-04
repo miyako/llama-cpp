@@ -7,9 +7,9 @@
 | --- | --- | --- | --- |
 | port | Integer | -> | Port stored in `options.port` |
 | huggingfaces | cs.event.huggingfaces | -> | One or more Hugging Face model descriptors |
-| options | Object | -> | Server options object (mutated to add `port`, `onTerminate`, `onStdErr`, `onStdOut`) |
+| options | Object | -> | Server options object (mutated to add `port`; when `event` is not `Null`, also `onTerminate`, `onStdErr`, `onStdOut`) |
 | formula | 4D.Function | -> | Internal response callback forwarded to the download helper |
-| event | cs.event.event | -> | Callback functions |
+| event | cs.event.event | -> | Callback functions, or `Null` for no callbacks |
 
 ## Description
 
@@ -37,7 +37,7 @@ URL formats accepted in `huggingface.URL`:
 
 #### download ()
 
-Dispatches the pending files once per instance. Assigns a unique internal completion identity to each destination before dispatch, so inline cached completions and out-of-order HTTP completions cannot remove another destination with the same Git OID. Repeated dispatches are ignored with a diagnostic.
+Dispatches the pending files once per instance. If there are no pending files, it calls `_onNothingToDownload()` instead (the base implementation calls `start()`; see [`_Model`](_Model.md)). Assigns a unique internal completion identity to each destination before dispatch, so inline cached completions and out-of-order HTTP completions cannot remove another destination with the same Git OID. Repeated dispatches are ignored with a diagnostic.
 
 When `lfs.oid` is a 64-hex SHA-256, an existing file is hashed even if its size differs from the metadata. It is never handed to the downloader for automatic replacement on an integrity mismatch. A completed managed download goes through the same gate. Hashing is delegated to the separately installed `cs.hash.hash` component, which reads through its streaming native CLI rather than loading a model into a 4D Blob.
 
