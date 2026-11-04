@@ -169,6 +169,35 @@ the historical green #23 run does not validate this changed source.
 
 Exact 20.7, Windows 4D, actual accepted native error-without-response, facade scheduling, live-server readiness and inference remain unverified. Synthetic schedules, real 4D compilation, real compiled execution, and real accepted-native controls are distinct tiers. No merge or production rollout is implied by this investigation PR.
 
+## First verified termination-gated implementation
+
+Hosted [run 41758980017](https://github.com/miyako/llama-cpp/actions/runs/41758980017)
+verified implementation head `2561509cbe46a864957998a3b43b3c6797323633` at
+merge checkout `e85734b5885732cc2fecad87a3550877054f83ea`.
+The controller SHA-256 is
+`e73f3429f2536d2db686df59e56281c50d2080e0eb5d34206763920a26fc5f13`.
+Official checksum-pinned 20.8 build 20.102083 (`F0012008`) compiled with
+`success:true/errors:[]`; all **2 native aggregate, 72 mixed schedules,
+17 persistent rejection and 16 supported persistent lifecycle checks** passed.
+Compilation and all four compiled runtime invocations exited 0 with fresh
+complete reports, no unexpected engine-error/driver-timeout artifacts, and
+matching callback/mailbox/report owner identities.
+
+The actual native nonzero command had no response-time exit code, then exit 1
+at termination. Its termination callback aborted before the dependent marker
+command could run; the marker remained absent after the late window. Native
+success/no-response-handler queues continued despite False termination returns.
+Active abort preserved native termination; all eight owned lifecycle workers
+terminated. The original callback POSX2 reached the caller's unchanged resumptive
+handler and normal return continued the queue. The original rejection suite
+preserved all four POSX2 stacks, clean pre-reuse state and three real reuses.
+
+This verifies the supported termination-gated contract, not accepted-native
+`onError` reachability, actual ABORT survival, exact 20.7, Windows, installed
+facade behavior or live inference. The failures below remain part of the evidence.
+Documentation-only successors do not change this implementation/source pin;
+their check results must still be read from their own runs.
+
 ## Diagnostic findings that required the approved timing migration
 
 Run [41757854630](https://github.com/miyako/llama-cpp/actions/runs/41757854630)
