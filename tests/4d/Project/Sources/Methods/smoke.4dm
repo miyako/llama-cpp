@@ -271,6 +271,11 @@ $silent.files:=[]
 $silent.runDownloads()
 check($worker.calls=($before+1); "Null event with local model did not start"; $state)
 
+var $numbers : Collection
+$numbers:=[0.3; 0.9; 1.1; 32768; -1; 0; 4294967296; 0.00001].map(Formula(_argNumber($1.value)))
+$state.argNumbers:=$numbers
+check($numbers.join(" ")="0.3 0.9 1.1 32768 -1 0 4294967296 1E-05"; "Command-line numbers are not locale-independent decimals"; $state)
+
 var $resultPath : Text
 var $parameter : Integer
 $parameter:=Get database parameter(User param value; $resultPath)
