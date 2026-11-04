@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Test idle launch rejection cleanup and characterize remaining controller gaps."""
+"""Verify controller lifecycle regressions with separate synthetic/native evidence."""
 
 import argparse
 import hashlib
@@ -22,22 +22,38 @@ SCHEDULE_IDS = {
     "reference-controls",
     "response-dispatch", "old-termination", "final-release", "callbacks",
     "context", "reuse", "handler-restoration", "old-handler-ownership",
-    "no-response-retention", "pending-parallel-queues", "stranded-execute",
+    "callback-before-dispatch",
+    "error-default-continue", "error-parallel-queues", "error-old-termination",
+    "error-final-release", "error-later-execute", "stale-generation",
     "explicit-abort", "abort-parallel-queues", "very-late-termination",
-    "duplicate-termination",
+    "duplicate-termination", "lifecycle-release", "worker-argument-ownership",
+    "callback-abort", "callback-enqueue", "callback-abort-enqueue",
+    "callback-terminate", "callback-restart", "false-return-ignored",
+    "error-callback-abort", "error-abort-termination", "nonzero-callback-abort",
+    "enqueue-after-response", "enqueue-after-response-ownership",
+    *{f"reentrant-{mode}-{check}"
+      for mode in ("abort", "enqueue", "abort-enqueue", "terminate", "restart", "continue")
+      for check in ("callback", "duplicate")},
     *{f"native-{kind}-{check}" for kind in ("true", "false", "timeout")
       for check in ("drain", "reuse")},
 }
-CANDIDATE_IDS = {
-    "no-response-retention", "pending-parallel-queues", "stranded-execute",
-    "abort-parallel-queues", "very-late-termination", "duplicate-termination",
-}
+CANDIDATE_IDS = set()
 REJECTION_IDS = {
     *{f"reject-{case}-{check}" for case in ("single", "batch", "repeat-1", "repeat-2")
       for check in ("error", "state")},
     "reuse-single", "reuse-batch", "reuse-repeated", "normal-queue",
     "native-old-termination", "late-event-window", "final-cleanup",
     "constructor-callback-order", "worker-owner-lifetime",
+}
+LIFECYCLE_IDS = {
+    "persistent-synthetic-error-continue", "persistent-synthetic-old-termination",
+    "persistent-synthetic-final-release", "persistent-synthetic-error-abort",
+    "persistent-synthetic-callbacks", "abort-does-not-terminate",
+    "native-nonzero-abort-before-sideeffect", "native-no-handler-continues",
+    "native-abort-preserves-callbacks", "callback-unwind-no-dispatch",
+    "unwind-handler-unchanged", "callback-resume-continues",
+    "resume-handler-unchanged", "persistent-late-sideeffects",
+    "persistent-native-cleanup", "persistent-lifecycle-owner",
 }
 
 
@@ -167,6 +183,86 @@ def validate_rejection(report, original, *, compiled_mode=True):
         raise RuntimeError("Directly owned test workers did not terminate")
 
 
+def validate_lifecycle(report):
+    validate_checks(report, LIFECYCLE_IDS)
+    if report.get("acceptedNativeErrorWithoutResponseReproduced") is not False:
+        raise RuntimeError("Synthetic accepted-error schedules are not native proof")
+    owner = report.get("ownerProcess", {})
+    if (owner.get("available") is not True or owner.get("type") != 5
+            or type(owner.get("number")) is not int or owner["number"] in (0, 1)
+            or type(owner.get("ID")) is not int or owner["ID"] == 0
+            or not owner.get("name")):
+        raise RuntimeError("Missing persistent lifecycle owner")
+    cases = report.get("cases", [])
+    names = ("nonzero-abort", "no-handler", "abort-active",
+             "callback-unwind", "callback-resume")
+    if [case.get("name") for case in cases] != list(names):
+        raise RuntimeError("Missing persistent lifecycle native controls")
+    processes = [report.get("reportProcess", {})]
+    turns = report.get("turns", [])
+    if len(turns) <= 5:
+        raise RuntimeError("Persistent owner did not survive later mailbox turns")
+    processes.extend(turn.get("process", {}) for turn in turns)
+    simulated = report.get("simulated", [])
+    if len(simulated) != 2 or any(
+        any(event.get(key) is not True for key in ("receiver", "worker", "event"))
+        or event.get("context") != "context-a" or event.get("launches") != 1
+        for event in simulated
+    ):
+        raise RuntimeError("Synthetic callback identity/context/order changed")
+    processes.extend(event.get("process", {}) for event in simulated)
+    expected_names = (
+        ["response", "termination"], ["termination", "termination"],
+        ["response", "termination"], ["response", "termination"],
+        ["response", "termination", "response", "termination"],
+    )
+    expected_handlers = ("probeError", "probeError", "probeError",
+                         "lifecycleAbort", "lifecycleResume")
+    pids = set()
+    for index, (case, expected, handler) in enumerate(
+        zip(cases, expected_names, expected_handlers)
+    ):
+        if case.get("kind") != "native-control":
+            raise RuntimeError("Native callback-error controls misclassified")
+        events = case.get("events", [])
+        if [event.get("name") for event in events] != expected:
+            raise RuntimeError("Persistent native callback sequence changed")
+        for event in events:
+            if (event.get("receiver") is not True or event.get("handler") != handler
+                    or event.get("type") != event.get("name")):
+                raise RuntimeError("Public receiver, event or caller error routing changed")
+            processes.append(event.get("process", {}))
+            pids.add(event.get("pid"))
+        if index != 1:
+            for response, termination in zip(events[::2], events[1::2]):
+                if (response.get("pid") != termination.get("pid")
+                        or response.get("context") not in ("first", "second")):
+                    raise RuntimeError("Public worker/context arguments changed")
+        errors = case.get("callbackErrors", [])
+        if index < 3:
+            if errors or case.get("returned") != 0:
+                raise RuntimeError("Unexpected callback errors")
+        else:
+            if len(errors) != 1 or case.get("returned") != index - 3:
+                raise RuntimeError("ABORT and intentional resumption were not distinguished")
+            error = errors[0]
+            stack = error.get("errors", [])
+            if (len(stack) != 1 or stack[0].get("errCode") != 2
+                    or stack[0].get("componentSignature") != "POSX"
+                    or error.get("handler") != handler):
+                raise RuntimeError("Original callback error did not reach caller's handler")
+            processes.append(error.get("process", {}))
+    if cases[0]["events"][0].get("exitCode") != 1:
+        raise RuntimeError("Native nonzero abort did not observe exit 1")
+    for process in processes:
+        if any(process.get(key) != owner.get(key) for key in ("ID", "number", "name", "type")):
+            raise RuntimeError("Lifecycle callback/turn owner identity changed")
+    cleanup = report.get("cleanup", [])
+    if (len(cleanup) != 9 or any(worker.get("terminated") is not True for worker in cleanup)
+            or not pids.issubset({worker.get("pid") for worker in cleanup})):
+        raise RuntimeError("Lifecycle test workers did not terminate")
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--tool4d", required=True, type=Path)
@@ -243,7 +339,7 @@ def main():
     ], directory, "compile", compile_report, timeout=120)
     if report.get("success") is not True or report.get("errors") != []:
         raise RuntimeError(f"Compiler diagnostics: {report}")
-    for method in ("native", "schedules", "rejection"):
+    for method in ("native", "schedules", "rejection", "lifecycle"):
         result = directory / f"{method}.json"
         report = run_engine([
             tool, str(anchor), "--skip-onstartup", f"--startup-method={method}",
@@ -265,22 +361,26 @@ def main():
             if any(check.get("kind") != "regression" for check in report["checks"]
                    if check["id"] not in CANDIDATE_IDS):
                 raise RuntimeError("Ordinary lifecycle checks must remain regressions")
-        else:
+        elif method == "rejection":
             validate_rejection(report, rejection)
+        else:
+            validate_lifecycle(report)
     (directory / "summary.json").write_text(json.dumps({
         "characterizationComplete": True,
-        "recoveryFixed": False,
+        "syntheticAcceptedLifecycleRegressionVerified": True,
+        "nativeResponseControlsVerified": True,
         "acceptedNativeErrorWithoutResponseReproduced": False,
         "candidateCheckIds": sorted(CANDIDATE_IDS),
         "scheduleCheckCount": len(SCHEDULE_IDS),
         "nativeCheckCount": 2,
         "idleConstructorRejectionCleanupVerified": True,
         "persistentWorkerRejectionCheckCount": len(REJECTION_IDS),
+        "persistentWorkerLifecycleCheckCount": len(LIFECYCLE_IDS),
         "engine": version.stdout.decode().strip(),
-        "validation": "Real 4D compile + compiled schedules/native controls + guarded persistent-worker rejection/reuse; not facade execution",
+        "validation": "Compiled synthetic lifecycle schedules, accepted-native controls and persistent-owner regressions; native onError without response and facade execution remain unproved",
     }, indent=2))
-    print("CHARACTERIZATION COMPLETE: native no-response error NOT reproduced; "
-          "synthetic gaps observed, NOT fixed.", flush=True)
+    print("LIFECYCLE REGRESSIONS VERIFIED: native no-response error NOT reproduced; "
+          "synthetic contract schedules and native controls passed.", flush=True)
 
 
 if __name__ == "__main__":

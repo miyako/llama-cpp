@@ -13,6 +13,15 @@
 
 This allows application code to attach a single `onTerminate` function on the `_server` (or `llama`) instance and have it called automatically when the `llama-server` process exits.
 
+Response/error lifecycle bookkeeping is private in `_CLI_Controller` and does
+not depend on forwarding either event here. Aggregate `onResponse` forwarding
+remains disabled by default; stdout/stderr handling and buffering are unchanged.
+To discard dependent commands, an existing custom controller override can call
+`This.abortQueue()` from `onError` or from `onResponse` on a nonzero exit.
+These callbacks run **before** the next queued command, unlike the former
+response ordering. Return values such as `False` do not abort the queue.
+See the parent's [callback and error policy](_CLI_Controller.md#event-callbacks).
+
 ### Overridden event callbacks
 
 The following callbacks are declared (but intentionally left as no-ops) and may be overridden in a subclass:

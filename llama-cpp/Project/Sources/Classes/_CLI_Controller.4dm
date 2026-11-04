@@ -8,6 +8,9 @@ property onResponse; _onResponse; onTerminate; _onTerminate : 4D:C1709.Function
 property _instance : cs:C1710._CLI
 property currentDirectory : 4D:C1709.Folder
 property SYSTEM_WORKER_CONTEXT : Object
+property _lifecycles : Collection
+property _active : Object
+property _generation : Integer
 
 Class constructor($CLI : cs:C1710._CLI)
 	
@@ -32,6 +35,9 @@ Class constructor($CLI : cs:C1710._CLI)
 	This:C1470._worker:=Null:C1517
 	This:C1470._complete:=False:C215  //flag to indicate whether we have queued commands
 	This:C1470.SYSTEM_WORKER_CONTEXT:={}  //kvp to manage context
+	This:C1470._lifecycles:=[]
+	This:C1470._active:=Null:C1517
+	This:C1470._generation:=0
 	
 Function get commands()->$commands : Collection
 	
@@ -87,11 +93,11 @@ Function execute($command : Variant; $message : Variant; $context : Variant) : c
 			This:C1470._contexts.combine($contexts)
 
 			If (This:C1470._worker=Null:C1517)
-				This:C1470._onResponse:=This:C1470.onResponse
-				This:C1470.onResponse:=This:C1470._onExecute
-				This:C1470._onTerminate:=This:C1470.onTerminate
-				This:C1470.onTerminate:=This:C1470._onComplete
 				This:C1470._execute()
+			Else
+				If (This:C1470._active.terminal) && (Not:C34(This:C1470._active.notifying)) && (Not:C34(This:C1470._active.terminated))
+					This:C1470._execute()
+				End if
 			End if
 		End if 
 		
@@ -99,15 +105,22 @@ Function execute($command : Variant; $message : Variant; $context : Variant) : c
 	
 	return This:C1470
 	
+Function abortQueue()
+	
+	This:C1470._complete:=True:C214
+	This:C1470._commands.clear()
+	This:C1470._messages.clear()
+	This:C1470._contexts.clear()
+
 Function terminate()
 	
-	This:C1470._abort()
-	
-	If (This:C1470._worker#Null:C1517)
-		This:C1470._worker.terminate()
-	End if 
-	
+	var $worker : 4D:C1709.SystemWorker
+	$worker:=This:C1470._worker
+	This:C1470.abortQueue()
 	This:C1470._terminate()
+	If ($worker#Null:C1517)
+		$worker.terminate()
+	End if
 	
 	//MARK:-private methods
 	
@@ -126,54 +139,95 @@ Function _onEvent($worker : 4D:C1709.SystemWorker; $params : Object)
 			
 	End case 
 	
-Function _onExecute($worker : 4D:C1709.SystemWorker; $params : Object)
-	
-	If (This:C1470._commands.length=0)
-		This:C1470._abort()
-	Else 
-		This:C1470._execute()
-	End if 
-	
-	If (OB Instance of:C1731(This:C1470._onResponse; 4D:C1709.Function))
-		$params.context:=This:C1470.SYSTEM_WORKER_CONTEXT[String:C10($worker.pid)]
-		This:C1470._onResponse.call(This:C1470; $worker; $params)
-	End if 
-	
+Function _lifecycle($worker : 4D:C1709.SystemWorker)->$lifecycle : Object
+
+	var $item : Object
+	For each ($item; This:C1470._lifecycles)
+		If ([$item.worker].indexOf($worker)=0)
+			$lifecycle:=$item
+			return
+		End if
+	End for each
+
+Function _owns($lifecycle : Object)->$owns : Boolean
+
+	$owns:=False:C215
+	If ($lifecycle#Null:C1517)
+		$owns:=([This:C1470._active].indexOf($lifecycle)=0) && (This:C1470._generation=$lifecycle.generation) && ([This:C1470._worker].indexOf($lifecycle.worker)=0)
+	End if
+
+Function _onExecute($worker : 4D:C1709.SystemWorker; $params : Object; $lifecycle : Object)
+
+	This:C1470._onTerminal($worker; $params; $lifecycle; "onResponse")
+
+Function _onFailure($worker : 4D:C1709.SystemWorker; $params : Object; $lifecycle : Object)
+
+	This:C1470._onTerminal($worker; $params; $lifecycle; "onError")
+
+Function _onTerminal($worker : 4D:C1709.SystemWorker; $params : Object; $lifecycle : Object; $event : Text)
+
+	If ($lifecycle=Null:C1517)
+		$lifecycle:=This:C1470._lifecycle($worker)
+	End if
+	If (Not:C34(This:C1470._owns($lifecycle)))
+		return
+	End if
+	If ([$lifecycle.worker].indexOf($worker)#0)
+		return
+	End if
+	If ($lifecycle.terminal) || ($lifecycle.terminated)
+		return
+	End if
+	$lifecycle.terminal:=True:C214
+	$lifecycle.notifying:=True:C214
+	$params.context:=$lifecycle.context
+	var $callback : 4D:C1709.Function
+	$callback:=$lifecycle.handlers[$event]
+	If (OB Instance of:C1731($callback; 4D:C1709.Function))
+		$callback.call(This:C1470; $worker; $params)
+	End if
+	$lifecycle.notifying:=False:C215
+
+	// A callback may cancel, replace the owner, or change all three pending queues.
+	If (This:C1470._owns($lifecycle)) && (Not:C34($lifecycle.terminated))
+		If (This:C1470._commands.length=0)
+			This:C1470._abort()
+		Else
+			This:C1470._execute()
+		End if
+	End if
+
+Function _options()->$options : Object
+
+	$options:={controller: This:C1470; timeout: This:C1470.timeout; dataType: This:C1470.dataType; encoding: This:C1470.encoding; variables: This:C1470.variables; currentDirectory: This:C1470.currentDirectory; hideWindow: This:C1470.hideWindow}
+	$options.handlers:={onResponse: This:C1470.onResponse; onTerminate: This:C1470.onTerminate; onData: This:C1470.onData; onDataError: This:C1470.onDataError; onError: This:C1470.onError}
+	If (This:C1470._worker#Null:C1517)
+		$options.handlers.onResponse:=This:C1470._onResponse
+		$options.handlers.onTerminate:=This:C1470._onTerminate
+	End if
+	$options.lifecycle:={handlers: $options.handlers; terminal: False:C215; terminated: False:C215; notifying: False:C215}
+	$options.onResponse:=Formula:C1597(This:C1470.controller._onInitialEvent(This:C1470; $1; $2; "onResponse"))
+	$options.onTerminate:=Formula:C1597(This:C1470.controller._onInitialEvent(This:C1470; $1; $2; "onTerminate"))
+	$options.onData:=Formula:C1597(This:C1470.controller._onInitialEvent(This:C1470; $1; $2; "onData"))
+	$options.onDataError:=Formula:C1597(This:C1470.controller._onInitialEvent(This:C1470; $1; $2; "onDataError"))
+	$options.onError:=Formula:C1597(This:C1470.controller._onInitialEvent(This:C1470; $1; $2; "onError"))
+
 Function _execute($commands : Collection; $messages : Collection; $contexts : Collection)
 
 	var $worker : 4D:C1709.SystemWorker
+	var $options : Object
+	$options:=This:C1470._options()
 	If ($commands#Null:C1517)
 		// Stage only an empty idle submission; constructor errors propagate without changing its queues or handlers.
-		var $options : Object
-		$options:={controller: This:C1470; timeout: This:C1470.timeout; dataType: This:C1470.dataType; encoding: This:C1470.encoding; variables: This:C1470.variables; currentDirectory: This:C1470.currentDirectory; hideWindow: This:C1470.hideWindow}
-		$options.handlers:={onResponse: This:C1470._onExecute; onTerminate: This:C1470._onComplete; onData: This:C1470.onData; onDataError: This:C1470.onDataError; onError: This:C1470.onError}
-		$options.onResponse:=Formula:C1597(This:C1470.controller._onInitialEvent(This:C1470; $1; $2; "onResponse"))
-		$options.onTerminate:=Formula:C1597(This:C1470.controller._onInitialEvent(This:C1470; $1; $2; "onTerminate"))
-		$options.onData:=Formula:C1597(This:C1470.controller._onInitialEvent(This:C1470; $1; $2; "onData"))
-		$options.onDataError:=Formula:C1597(This:C1470.controller._onInitialEvent(This:C1470; $1; $2; "onDataError"))
-		$options.onError:=Formula:C1597(This:C1470.controller._onInitialEvent(This:C1470; $1; $2; "onError"))
 		$worker:=4D:C1709.SystemWorker.new($commands[0]; $options)
-		If ($worker=Null:C1517)
-			// A caller's installed error handler may resume after the native rejection.
-			return
-		End if
-		This:C1470._onResponse:=This:C1470.onResponse
-		This:C1470.onResponse:=This:C1470._onExecute
-		This:C1470._onTerminate:=This:C1470.onTerminate
-		This:C1470.onTerminate:=This:C1470._onComplete
-		This:C1470._commands.combine($commands)
-		This:C1470._messages.combine($messages)
-		This:C1470._contexts.combine($contexts)
-		This:C1470._commands.shift()
 	Else
-		This:C1470._complete:=False:C215
-		$worker:=4D:C1709.SystemWorker.new(This:C1470._commands.shift(); This:C1470)
+		$worker:=4D:C1709.SystemWorker.new(This:C1470._commands[0]; $options)
 	End if
-	
-	This:C1470._complete:=False:C215
-	This:C1470._worker:=$worker
-	
-	This:C1470.SYSTEM_WORKER_CONTEXT[String:C10(This:C1470._worker.pid)]:=This:C1470._contexts.shift()
+	If ($worker=Null:C1517)
+		// A caller's installed error handler may resume after the native rejection.
+		return
+	End if
+	This:C1470._accept($worker; $options.lifecycle; $commands; $messages; $contexts)
 	
 	var $message : Variant
 	$message:=This:C1470._messages.shift()
@@ -205,31 +259,86 @@ Function _execute($commands : Collection; $messages : Collection; $contexts : Co
 			
 	End case 
 
+Function _accept($worker : 4D:C1709.SystemWorker; $lifecycle : Object; $commands : Collection; $messages : Collection; $contexts : Collection)
+
+	If (This:C1470._worker=Null:C1517)
+		This:C1470._onResponse:=This:C1470.onResponse
+		This:C1470.onResponse:=This:C1470._onExecute
+		This:C1470._onTerminate:=This:C1470.onTerminate
+		This:C1470.onTerminate:=This:C1470._onComplete
+	End if
+	If ($commands#Null:C1517)
+		This:C1470._commands.combine($commands)
+		This:C1470._messages.combine($messages)
+		This:C1470._contexts.combine($contexts)
+	End if
+	This:C1470._commands.shift()
+	This:C1470._complete:=False:C215
+	This:C1470._worker:=$worker
+	This:C1470._generation+=1
+	$lifecycle.generation:=This:C1470._generation
+	$lifecycle.worker:=$worker
+	$lifecycle.context:=This:C1470._contexts.shift()
+	This:C1470.SYSTEM_WORKER_CONTEXT[String:C10($worker.pid)]:=$lifecycle.context
+	This:C1470._lifecycles.push($lifecycle)
+	This:C1470._active:=$lifecycle
+
 Function _onInitialEvent($options : Object; $worker : 4D:C1709.SystemWorker; $params : Object; $event : Text)
 
+	Case of
+		: ($event="onResponse")
+			This:C1470._onExecute($worker; $params; $options.lifecycle)
+		: ($event="onError")
+			This:C1470._onFailure($worker; $params; $options.lifecycle)
+		: ($event="onTerminate")
+			This:C1470._onComplete($worker; $params; $options.lifecycle)
+		Else
+			var $callback : 4D:C1709.Function
+			$callback:=$options.handlers[$event]
+			If (OB Instance of:C1731($callback; 4D:C1709.Function))
+				$callback.call(This:C1470; $worker; $params)
+			End if
+	End case
+
+Function _onComplete($worker : 4D:C1709.SystemWorker; $params : Object; $lifecycle : Object)
+
+	If ($lifecycle=Null:C1517)
+		$lifecycle:=This:C1470._lifecycle($worker)
+	End if
+	If ($lifecycle=Null:C1517)
+		return
+	End if
+	If ([$lifecycle.worker].indexOf($worker)#0)
+		return
+	End if
+	var $index : Integer
+	$index:=This:C1470._lifecycles.indexOf($lifecycle)
+	If ($index=-1) || ($lifecycle.terminated)
+		return
+	End if
+	$lifecycle.terminated:=True:C214
+	This:C1470._lifecycles.remove($index)
+	If (This:C1470._owns($lifecycle))
+		// An interrupted notification never authorizes another launch.
+		This:C1470.abortQueue()
+		This:C1470._terminate()
+	End if
 	var $callback : 4D:C1709.Function
-	$callback:=$options.handlers[$event]
+	$callback:=$lifecycle.handlers.onTerminate
 	If (OB Instance of:C1731($callback; 4D:C1709.Function))
 		$callback.call(This:C1470; $worker; $params)
 	End if
-	
-Function _onComplete($worker : 4D:C1709.SystemWorker; $params : Object)
-	
-	If (OB Instance of:C1731(This:C1470._onTerminate; 4D:C1709.Function))
-		This:C1470._onTerminate.call(This:C1470; $worker; $params)
-	End if 
-	
-	If (This:C1470.complete)
-		This:C1470._terminate()
-	End if 
-	
+
 Function _abort()
 	
-	This:C1470._complete:=True:C214
-	This:C1470._commands.clear()
+	This:C1470.abortQueue()
 	
 Function _terminate()
 	
-	This:C1470.onResponse:=This:C1470._onResponse
-	This:C1470.onTerminate:=This:C1470._onTerminate
+	If (This:C1470._worker#Null:C1517)
+		This:C1470.onResponse:=This:C1470._onResponse
+		This:C1470.onTerminate:=This:C1470._onTerminate
+	End if
+	This:C1470._generation+=1
+	This:C1470._active:=Null:C1517
 	This:C1470._worker:=Null:C1517

@@ -9,7 +9,12 @@
 
 ## Description
 
-`_CLI_Controller` serializes an ordered queue of shell commands, executing each one in its own `4D.SystemWorker` and advancing on its response callback. It is attached to a `_CLI` instance and is not used directly by application code.
+`_CLI_Controller` serializes an ordered queue of shell commands, executing each one in its own `4D.SystemWorker`. Private bookkeeping advances after either a response or an execution error, independently of public event forwarding. The owning `_CLI` exposes it through its `controller` getter.
+
+The [4D 20 contract](https://developer.4d.com/docs/20/API/SystemWorkerClass)
+delivers `onError` once **or** `onResponse` once, then `onTerminate` always.
+An accepted native error without response remains unreproduced in this project's
+native controls; supporting that documented branch does not claim a native reproduction.
 
 ### Properties
 
@@ -34,9 +39,44 @@ The following properties may be set to `4D.Function` values before calling `exec
 | --- | --- | --- |
 | onData | ($worker; $params) | Fired when the worker emits stdout data |
 | onDataError | ($worker; $params) | Fired when the worker emits stderr data |
-| onError | ($worker; $params) | Fired on worker error |
-| onResponse | ($worker; $params) | Fired when the worker responds (command finished) |
+| onError | ($worker; $params) | Optional execution-error callback, before the next queued command |
+| onResponse | ($worker; $params) | Optional response callback, before the next queued command; inspect `worker.exitCode` to distinguish nonzero exits |
 | onTerminate | ($worker; $params) | Fired when the worker terminates |
+
+Callbacks keep the controller as `This` and the original worker and event objects
+as arguments. Response and error events receive the accepted command's `context`;
+existing error fields are not replaced. Each accepted dispatch retains its own
+callback/context ownership until termination. Duplicate/stale terminal events do
+not notify twice or release a newer worker, including when a callback terminates
+and restarts the controller.
+
+**Ordering migration:** previously, the response handler launched the next command
+before calling the saved public `onResponse`. Now the optional response/error
+callback runs first. After it returns, private bookkeeping rechecks ownership and
+the current queues. Callback code must not assume a dependent command has already
+started. Enqueueing in the callback is supported; `terminate()` followed by
+`execute()` explicitly starts a new generation without an extra old-generation
+dispatch.
+
+**Queue policy:** remaining commands continue by default, even on execution error
+or nonzero exit, or when a component deliberately does not forward the public
+event. Call `This.abortQueue()` to discard dependents. Callback return values,
+including `False`, are ignored. Aborting then enqueueing explicitly submits new
+work; only commands pending at the instant of abort are discarded.
+
+**Callback errors on 20 LTS:** the controller installs no error handler and does
+not swallow or translate callback errors. A callback which returns normally,
+including after a caller's handler deliberately resumes execution, authorizes
+continuation. Such a handler must explicitly call `abortQueue()` if it considers
+the callback failed. A callback interrupted by `ABORT` cannot authorize a next
+launch; if its owner survives and receives termination, private cleanup discards
+pending work and releases only that dispatch. The controller cannot guarantee
+callbacks or cleanup after caller code destroys the owning process. Termination
+cleanup occurs before the public termination notification.
+
+Quiet default stdout/stderr handlers and `_llama_Controller`'s deliberate lack
+of aggregate response/error forwarding are unchanged. No output buffering or
+default aggregate response notification is added.
 
 ### Methods
 
@@ -64,19 +104,43 @@ also commits nothing.
 
 The initial worker uses a private options adapter to forward native callbacks
 with the original controller as receiver and unchanged worker/event arguments.
-Construction and commit contain no wait/listening loop. Successful dispatch,
-quiet default stream handlers and subsequent response-driven queue advancement
-are unchanged. This uses the existing 20.7-compatible language, not `Try`/`throw`.
+Construction and commit contain no wait/listening loop. Quiet default stream
+handlers remain unchanged. This uses existing 20 LTS language, not `Try`/`throw`;
+exact 20.7 execution requires separate evidence.
 
 This narrow rule does not repair previously corrupted/nonempty idle controllers,
-change explicit abort behavior, or handle rejection of a later command dispatched
+or guarantee recovery from rejection of a later command dispatched
 from an earlier worker's response. Those ownership/error-policy cases remain
 separate. Do not retry a controller already left with installed wrappers by older
 code; use a fresh controller with the corrected source.
 
+#### abortQueue ()
+
+Clears **all three pending queues**: commands, stdin messages, and contexts.
+Does not terminate the active native worker, change the accepted command's context
+or historical `SYSTEM_WORKER_CONTEXT` entries, or suppress its termination callback.
+The controller is complete until new work is enqueued.
+
+The supported callback binding is the controller's public callback property or
+an existing custom `_llama_Controller` subclass override. No new facade event
+binding is required:
+
+```4d
+// In a custom controller subclass:
+Function onError($worker : 4D.SystemWorker; $params : Object)
+    This.abortQueue()
+
+Function onResponse($worker : 4D.SystemWorker; $params : Object)
+    If ($worker.exitCode#0)
+        This.abortQueue()
+    End if
+```
+
 #### terminate ()
 
-Aborts the queue, clears all pending commands, terminates the active worker, and resets internal state.
+Calls `abortQueue()`, releases the current controller generation, and requests
+termination of its native worker. A later old-worker termination is still
+notified once, but cannot clear a replacement worker.
 
 ## See also
 

@@ -1,0 +1,1 @@
+lifecycleProbe.capture(Last errors)
