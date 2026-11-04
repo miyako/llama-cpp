@@ -30,8 +30,8 @@ In addition to properties inherited from `_CLI`:
 | Property | Type | Description |
 | --- | --- | --- |
 | port | Integer | Port the server is listening on |
-| onData | 4D.Function | Forwarded to the controller's `onData` handler |
-| onDataError | 4D.Function | Forwarded to the controller's `onDataError` handler |
+| onData | 4D.Function | Declared but not bound or forwarded by default (stdout is intentionally quiet) |
+| onDataError | 4D.Function | Declared but not bound or forwarded by default (stderr is intentionally quiet) |
 | onTerminate | 4D.Function | Called by `_llama_Controller` when the worker terminates |
 
 ### Methods
