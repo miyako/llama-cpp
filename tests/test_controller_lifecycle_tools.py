@@ -110,7 +110,8 @@ class EvidenceGateTests(unittest.TestCase):
         ), 100):
             events.extend([
                 {"name": name, "pid": pid, "context": context, "exitCode": 0,
-                 "receiver": True, "constructionActive": False, "process": owner.copy()}
+                 "receiver": True, "constructionActive": False, "process": owner.copy(),
+                 "currentPID": pid}
                 for name in ("response", "termination")
             ])
         states = []
@@ -157,6 +158,7 @@ class EvidenceGateTests(unittest.TestCase):
             lambda r: r["events"][0].update(constructionActive=True),
             lambda r: r["events"][0].update(context="failed"),
             lambda r: r["events"][1].update(pid=999),
+            lambda r: r["events"][7].update(currentPID=r["events"][8]["pid"]),
             lambda r: r["cleanup"][0].update(terminated=False),
         )
         for mutate in mutations:
@@ -188,6 +190,99 @@ class EvidenceGateTests(unittest.TestCase):
         self.assertNotIn("Get process activity", helper)
         worker = (source / "Methods/rejectionWorker.4dm").read_text()
         self.assertIn("If (rejectionProbe.report.errors.length=0)", worker)
+
+    def lifecycle_report(self):
+        owner = {"number": 2, "ID": 73, "name": "isolated-lifecycle", "type": 5,
+                 "available": True}
+        cases = []
+        pid = 100
+        for index, name in enumerate((
+            "nonzero-abort", "no-handler", "abort-active", "callback-resume",
+        )):
+            handler = ("probeError", "probeError", "probeError",
+                       "lifecycleResume")[index]
+            events = []
+            for command in range(2 if index in (1, 3) else 1):
+                names = ("termination",) if index == 1 else ("response", "termination")
+                events.extend({
+                    "name": event, "type": event, "pid": pid,
+                    "receiver": True, "context": ("first", "second")[command],
+                    "exitCode": 1 if index == 0 else 0,
+                    "handler": handler, "process": owner.copy(), "activePID": pid,
+                } for event in names)
+                pid += 1
+            cases.append({
+                "name": name, "kind": "native-control", "events": events,
+                "callbackErrors": [] if index < 3 else [{
+                    "errors": [{"errCode": 2, "componentSignature": "POSX"}],
+                    "handler": handler, "process": owner.copy(), "number": 2,
+                    "method": "LifecycleProbe.response",
+                }],
+                "returned": 1 if index == 3 else 0,
+            })
+        return {
+            "complete": True, "compiledMode": True, "errors": [],
+            "checks": [{"id": name, "passed": True} for name in TOOLS.LIFECYCLE_IDS],
+            "acceptedNativeErrorWithoutResponseReproduced": False,
+            "sideEffectObserved": False,
+            "cases": cases, "ownerProcess": owner, "reportProcess": owner.copy(),
+            "turns": [{"process": owner.copy()} for _ in range(6)],
+            "simulated": [{
+                "receiver": True, "worker": True, "event": True,
+                "context": "context-a", "launches": 1, "process": owner.copy(),
+            } for _ in range(2)],
+            "cleanup": [{"pid": p, "terminated": True} for p in range(98, 106)],
+        }
+
+    def test_persistent_lifecycle_evidence_gates(self):
+        report = self.lifecycle_report()
+        TOOLS.validate_lifecycle(report)
+        mutations = (
+            lambda r: r.update(acceptedNativeErrorWithoutResponseReproduced=True),
+            lambda r: r["ownerProcess"].update(available=False),
+            lambda r: r["reportProcess"].update(ID=74),
+            lambda r: r["simulated"][0].update(event=False),
+            lambda r: r["simulated"][0].update(launches=2),
+            lambda r: r["cases"][0]["events"][1].update(exitCode=0),
+            lambda r: r["cases"][0]["events"][0].update(handler="intercepted"),
+            lambda r: r["cases"][3].update(returned=0),
+            lambda r: r.update(sideEffectObserved=True),
+            lambda r: r["cases"][3]["callbackErrors"][0]["errors"][0].update(errCode=99),
+            lambda r: r["cases"][3]["events"][0]["process"].update(ID=74),
+            lambda r: r["cases"][0]["events"][1].update(activePID=999),
+            lambda r: r["cleanup"][0].update(terminated=False),
+        )
+        for mutate in mutations:
+            with self.subTest(mutate=mutate):
+                bad = copy.deepcopy(report)
+                mutate(bad)
+                with self.assertRaises(RuntimeError):
+                    TOOLS.validate_lifecycle(bad)
+
+    def test_production_keeps_quiet_streams_and_caller_error_routing(self):
+        controller = (ROOT / "llama-cpp/Project/Sources/Classes/_CLI_Controller.4dm").read_text()
+        terminal = controller.split("Function _onTerminal(", 1)[1].split(
+            "Function _options(", 1,
+        )[0]
+        self.assertNotIn("._execute()", terminal)
+        termination = controller.split("Function _onComplete(", 1)[1].split(
+            "Function _abort(", 1,
+        )[0]
+        self.assertLess(termination.index("$callback.call("), termination.index("._execute()"))
+        self.assertNotIn("ON ERR CALL", controller)
+        self.assertNotIn("Last errors", controller)
+        self.assertNotIn(".response", controller)
+        self.assertIn('onData: This:C1470.onData; onDataError: This:C1470.onDataError', controller)
+        llama = (ROOT / "llama-cpp/Project/Sources/Classes/_llama_Controller.4dm").read_text()
+        self.assertNotIn("$instance.onResponse", llama)
+        self.assertNotIn("$instance.onError", llama)
+
+    def test_supported_suite_does_not_repeat_destructive_abort_probe(self):
+        source = ROOT / "tests/controller/Project/Sources"
+        suite = (source / "Classes/LifecycleProbe.4dm").read_text()
+        self.assertNotIn('ON ERR CALL("lifecycleAbort"', suite)
+        self.assertIn("persistent-synthetic-interrupted-notification", suite)
+        self.assertIn('ON ERR CALL("lifecycleResume"', suite)
 
 
 if __name__ == "__main__":

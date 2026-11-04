@@ -6,7 +6,7 @@ Class constructor($timeout : Real)
 	This.timeout:=$timeout
 
 Function record($name : Text; $worker : 4D.SystemWorker; $event : Object)
-	This.events.push({name: $name; type: $event.type; pid: $worker.pid; exitCode: $worker.exitCode; errors: $worker.errors; terminated: $worker.terminated})
+	This.events.push({name: $name; type: $event.type; pid: $worker.pid; exitCode: $worker.exitCode; errors: $worker.errors; terminated: $worker.terminated; event: OB Copy($event)})
 
 Function onResponse($worker : 4D.SystemWorker; $event : Object)
 	This.record("response"; $worker; $event)

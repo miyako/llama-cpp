@@ -54,20 +54,21 @@ jobs:
           tar -xJf .build/tool-downloads/tool4d.tar.xz -C .build/tool4d
           codesign --verify --strict .build/tool4d/tool4d.app
           .build/tool4d/tool4d.app/Contents/MacOS/tool4d --version
-      - name: Compile and verify idle rejection plus lifecycle controls
+      - name: Compile and verify accepted lifecycle plus idle rejection
         run: |
           python3 scripts/test-controller-lifecycle.py \
             --tool4d "$PWD/.build/tool4d/tool4d.app/Contents/MacOS/tool4d"
-      - name: Label narrow cleanup and remaining investigation
+      - name: Label evidence tiers and queue policy
         if: always()
         run: |
           {
-            echo '## Initial-idle cleanup verification — Refs #18'
-            echo 'The proposed fix discards a synchronously rejected new batch on an empty idle controller; it preserves original native errors and callback receiver/arguments.'
-            echo 'Required gates: diagnostics-free 20.8 compilation; fresh compiled native, schedule and persistent-worker reports; clean engine exits.'
-            echo 'The 17 worker checks guard clean failure state BEFORE any reuse, then exercise actual native reuse, queue callbacks, owner identity and a late-event window.'
-            echo 'recoveryFixed=false refers to broader terminal recovery: known synthetic stranding/very-late termination candidates are still characterized, not repaired.'
-            echo 'Accepted native error-without-response remains unestablished. Missing-executable POSX2 is synchronous rejection.'
+            echo '## Accepted-worker lifecycle verification — Refs #24'
+            echo 'Native response/error notifications keep their timing; queue progression waits until user onTerminate returns, allowing native exit-code abortion before any dependent sideeffect. Default is continue; abortQueue clears all pending queues without native termination.'
+            echo 'Required gates: diagnostics-free 20.8 compilation; four fresh compiled reports; clean engine exits.'
+            echo 'The original 17 persistent-worker rejection checks still guard clean state BEFORE any reuse.'
+            echo 'Accepted-error/interrupted-notification schedules remain manual simulation. Native controls independently verify default continuation, nonzero termination abort before sideeffects, active-worker abort and deliberately resumptive callback-error routing in a surviving owner.'
+            echo 'A deliberately resumed callback counts as normal return. Production installs no error handler; the prior failed destructive-ABORT attempt remains a documented owner boundary, not a repeated positive test or a cleanup promise after owner death.'
+            echo 'Accepted native error-without-response remains unestablished. Missing-executable POSX2 is synchronous rejection, including when deliberately triggered inside a callback.'
             echo 'Read retained reports and engine exits; a passing JSON report followed by a shutdown crash is a failure, not a runtime pass.'
           } >> "$GITHUB_STEP_SUMMARY"
       - name: Preserve compiler, execution and candidate evidence

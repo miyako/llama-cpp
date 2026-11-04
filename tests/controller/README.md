@@ -1,6 +1,28 @@
-# Controller lifecycle characterization and idle launch rejection
+# Controller lifecycle regressions and native controls
 
-Refs [#18](https://github.com/miyako/llama-cpp/issues/18). **An accepted native `onError` without `onResponse` has not been reproduced.** The initial-idle cleanup change was manually merged by the user in #22 before the controller gate completed. It separately addresses synchronous constructor rejection of a newly submitted batch on an empty idle controller; it does not choose an accepted-worker runtime-error policy, repair response-dispatched constructor failures, or prove facade-level behavior. The fixture-only follow-up replaces an unsupported process-inspection API for 20 LTS. Supported-engine compilation and clean native verification remain pending, not implied by that merge.
+Refs [#24](https://github.com/miyako/llama-cpp/issues/24). **An accepted native
+`onError` without `onResponse` has not been reproduced.** The implementation now
+supports that explicit documented 4D 20 contract branch without requiring a
+native OS-failure trigger. The separately merged #22/#23 synchronous rejection
+transaction and its 17 persistent-worker checks remain required.
+
+The approved policy is default continuation after response/error **and native
+termination**. Native response/error notifications keep their original timing;
+queued progression waits until the optional existing `onTerminate` callback
+returns, **before** the next command's side effects.
+`abortQueue()` clears pending commands/messages/contexts without terminating
+the current worker or suppressing termination. `False` returns are ignored.
+No facade response/error forwarding or stream/output-buffering change is made.
+The controller getter and custom `_llama_Controller` overrides are the supported
+callback bindings; callbacks receive `This=controller` and original arguments.
+
+Original callback error routing is preserved: production installs no handler.
+An intentionally resumed callback counts as normal return and may explicitly
+abort the queue. An interrupted callback does not authorize dispatch; termination
+cleans up if the owner survives. No callback or cleanup is promised after caller
+code destroys that owner. The supported positive suite does not replay the
+destructive ABORT attempt described below. See the production
+[ordering migration and callback policy](../../llama-cpp/Documentation/Classes/_CLI_Controller.md).
 
 ```sh
 python3 -m unittest discover -s tests -p 'test_controller_lifecycle_tools.py'
@@ -16,27 +38,52 @@ stub _CLI (currentDirectory only)
      -> real 4D.SystemWorker (native execution controls)
 Probe (native callback recorder, independent of controller)
 RejectionProbe (dedicated persistent worker, real controller, guarded reuse)
+LifecycleProbe (separate persistent worker, synthetic error schedules/native controls)
 ```
 
 All fixture classes share one owning project, respecting 4D inheritance boundaries. Real, already-terminated tiny workers provide typed identities for synthetic schedules; manually invoked callbacks do **not** establish native scheduling reachability. Native controls use the real controller without the dispatch override. No released components, registry facade, production startup, models, cache mutation, server, installations, rebuilds, or network calls are involved in the local test.
 
-## What a successful characterization means
+## What successful verification means
 
 The native matrix runs `/usr/bin/true`, `/usr/bin/false`, a shell **self-only** TERM attempt, `/bin/sleep 2` with a 0.1-second worker timeout, and a deliberately nonexistent executable. Each accepted command has a three-second wait and targeted worker termination if still running. The signal attempt is recorded exactly as observed; an engine-reported exit 0 is **not** evidence of a signalled native exit. The four accepted controls currently emit `response -> termination`, not native `onError`. False must exit 1. The missing executable must return null without callbacks and synchronously report POSX2; it is not an accepted-worker runtime failure.
 
-The 22 deterministic/native-controller checks are separated by `kind`:
+The deterministic/native-controller schedules are classified deliberately:
 
 | Kind | Evidence |
 | --- | --- |
-| `regression` | A response dispatches B before A termination; A termination while B is incomplete preserves B and its wrapper handlers; final release restores public handlers; callback counts/order/receivers/worker arguments/context; later reuse; explicit command abort; actual success/nonzero/timeout queues drain and allow a distinct later worker |
-| `candidate` | Synthetic error-without-response retains incomplete A, pending parallel queues and strands a later execute; explicit abort retains message/context queues; synthetic A termination delayed until after B response clears B; directly replayed duplicate termination forwards twice |
+| `regression` | Native-timed response/error, then termination notification before B dispatch; default continuation/no handler/ignored False; explicit abort of all pending queues; receiver/original arguments/context/error fields; reentrant response and termination enqueue/abort/terminate/restart; duplicate/stale/generation/worker ownership; delayed A termination after explicit restart preserving B; handler restoration/reuse; native success/nonzero/timeout drain/reuse |
+| `candidate` | None in the current corrected schedules. The six old gap characterizations have deliberately become positive regressions; this does not promote synthetic events to native proof. |
 
-Candidate checks intentionally assert the **remaining observed gaps**, not desired corrected behavior. Green means those observations still characterize the source; it does not mean general terminal recovery is fixed. A changed native sequence, missing candidate, failed invariant or altered source behavior requires investigation and updating the characterization deliberately—not silently accepting a new shape.
+The `LifecycleProbe` retains its controllers in a uniquely named dedicated worker
+after startup returns. Later mailbox turns simulate accepted error/no-response
+continuation and callback abort using retired typed native identities. These
+events remain **manual simulation**, including interrupted-notification state.
+Native controls separately check nonzero **termination** abort before a queued
+`/usr/bin/touch` can create a disposable marker;
+no-handler continuation; aborting a still-running sleep without termination;
+and preserved callbacks/late-event absence. The marker is checked again after
+a bounded late window, not merely inferred from a controller launch count.
 
-A completed full run emits `summary.json` with `recoveryFixed:false`,
-`acceptedNativeErrorWithoutResponseReproduced:false` and the separate
-`idleConstructorRejectionCleanupVerified:true`. No success summary is written
-until all strict gates pass.
+The fixture-only resumptive local handler exercises the approved callback-error policy.
+The callback deliberately attempts a missing native executable (synchronous
+POSX2, **not** native `onError`). The handler records the original stack and actual
+process identity through the invocation's unique report path, then deliberately
+resumes; normal return must continue after termination. Production never
+installs or changes that handler. A separate earlier negative ABORT attempt did
+not preserve later owner execution and is retained as a boundary, not a positive
+test. `lifecycleAbort` is retained only to bind that historical failed probe;
+the supported suite never installs it again. A killed owner, missing report or
+driver timeout cannot count as a successful surviving-owner test. The fixture
+restores its handler outside the error-handling method.
+
+A completed compiled run emits `summary.json` with
+`syntheticAcceptedLifecycleRegressionVerified:true`,
+`nativeResponseControlsVerified:true`,
+`acceptedNativeErrorWithoutResponseReproduced:false`, and
+`idleConstructorRejectionCleanupVerified:true`. The old ambiguous `recoveryFixed`
+flag is removed from this compiled summary rather than treating a simulation as
+general native recovery proof. No success summary is written until all strict
+gates pass.
 
 ## Initial-idle constructor rejection regression
 
@@ -52,8 +99,8 @@ process-scoped `RejectionProbe` retains the controller and public callback
 identities after startup returns. Seventeen checks cover missing-single,
 missing-first-of-batch, repeated failures, original POSX2 error stacks, all three
 queues, unchanged saved/public handlers and context map, three actual harmless
-reuses, a two-command native queue, old termination while the next worker is
-incomplete, callback receiver/context/constructor ordering, owner identity,
+reuses, a two-command native queue, termination notification before construction
+of the next worker, callback receiver/context/constructor ordering, owner identity,
 a late-event window and directly owned native-worker termination.
 
 **The baseline guard is before reuse:** if failure state or the original error
@@ -76,8 +123,9 @@ remains capped at 30 seconds. Only after reporting does the isolated fixture sto
 its own worker and quit its disposable engine. These test entrypoints must never
 be copied into the live source project.
 
-The default runner still requires diagnostic-free compilation and compiled
-execution of all three methods. A separate, explicitly scoped command is
+The default runner requires diagnostic-free compilation and compiled
+execution of all four methods (`native`, `schedules`, `rejection`, `lifecycle`).
+A separate, explicitly scoped command is
 available for interpreted evidence only:
 
 ```sh
@@ -90,19 +138,114 @@ synthetic schedules, requires `compiledMode:false`, and writes only
 satisfy the default compiled gate. Do not retry a known crashing local engine
 merely to obtain a green run.
 
-The [4D 20](https://developer.4d.com/docs/20/API/SystemWorkerClass) and [21 R4](https://developer.4d.com/docs/21-R4/API/SystemWorkerClass) contracts specify optional `onError` with no response, followed by termination, and distinguish constructor rejection. Source advances on response regardless of exit code; explicit `terminate()` aborts pending commands. No established contract chooses abort versus continue for native runtime error. Any eventual fix needs that decision and identity-aware cleanup: an old worker's termination must not release a newer worker.
+The [4D 20](https://developer.4d.com/docs/20/API/SystemWorkerClass) contract
+specifies `onError` once or `onResponse` once, followed by termination, and
+distinguishes constructor rejection. The approved implementation advances after either result and termination,
+regardless of exit code, unless callback code explicitly aborts.
+Private identity-owned cleanup prevents old termination releasing a newer worker.
 
 Reference workers 20.0.19 (`d58fcbd64eb050fcba658bf576ba18f24c51fad4`) creates a new `_server`/controller when its stored native worker is terminated. Direct controller retention therefore does not prove a public facade restart failure. Production `latest` dependency declarations are unresolved here; the reference source is not proof of installed artifact behavior.
 
 ## Strict evidence and validation tiers
 
-In default mode, `Compile project` runs first using the existing small compiler driver, with no component inputs. Success requires `success:true`, an empty diagnostics array (warnings also stop this harness), and exit 0. All three subsequent methods must execute in compiled mode and finish with fresh complete reports, every exact check ID once, no unexpected engine-error/driver-timeout artifact, and exit 0. A green report followed by a shutdown crash fails; exit 0 without a fresh report fails. The runner retains invocation arrays, compiler diagnostics, engine version, raw stdout/stderr, exit/timeout records, per-check checkpoints, native events and the expected rejection diagnostic. Each runtime invocation is capped at 30 seconds; compilation at 120 seconds. Python gate tests exercise stale/missing reports, nonzero exits, timeouts, mode separation, incomplete/duplicate assertions, worker/receiver/error identity and queue/context contamination.
+In default mode, `Compile project` runs first using the existing small compiler
+driver, with no component inputs. Success requires `success:true`, an empty
+diagnostics array (warnings also stop this harness), and exit 0. All four methods
+must execute in compiled mode and finish with fresh complete reports, every exact
+check ID once, no unexpected engine-error/driver-timeout artifact, and exit 0.
+A green report followed by a shutdown crash fails; exit 0 without a fresh report
+fails. The runner retains invocation arrays, compiler diagnostics, source SHA/HEAD,
+engine version, raw stdout/stderr, exit/timeout records and callback/error/owner
+evidence. Each invocation is capped at 30 seconds; compilation at 120 seconds.
+Python tests reject malformed or misclassified evidence rather than weaken gates.
 
-Local validation uses **21 R4 build 21R4.100208**. The dedicated read-only `Controller lifecycle characterization` Actions workflow uses the existing integrity workflow's official macOS arm64 **20.8 archive pinned by SHA-256**, verifies code signing, then runs this fixture without dependencies. It has only `contents:read`, uploads diagnostic artifacts even on failure, and never invokes publication. Hosted results are separate evidence and must be read from the actual run; a local 21 R4 pass is not a hosted 20.8 pass.
+Local engine retries are prohibited for this patch because prior 21 R4 and
+private 20.8 attempts crashed at shutdown. Local validation is Python/static only.
+The read-only `Controller lifecycle characterization` workflow uses the official
+macOS arm64 **20.8 archive pinned by SHA-256**, verifies signing, and runs without
+components. It has only `contents:read`, uploads artifacts even on failure, and
+never invokes publication. Hosted results must be read from the actual new run;
+the historical green #23 run does not validate this changed source.
 
 Exact 20.7, Windows 4D, actual accepted native error-without-response, facade scheduling, live-server readiness and inference remain unverified. Synthetic schedules, real 4D compilation, real compiled execution, and real accepted-native controls are distinct tiers. No merge or production rollout is implied by this investigation PR.
 
-The initial hosted 20.8 run [41672156148](https://github.com/miyako/llama-cpp/actions/runs/41672156148) correctly stopped at compiler diagnostics: direct comparisons of typed object/function references in the fixture were accepted locally on 21 R4 but rejected on 20.8. The fixture now uses the documented [Collection.indexOf object-reference search](https://developer.4d.com/docs/20/API/CollectionClass#indexof), with same-reference and distinct-empty-object controls. No production source changed and no diagnostics were waived; the initial failed run remains visible.
+## First verified termination-gated implementation
+
+Hosted [run 41758980017](https://github.com/miyako/llama-cpp/actions/runs/41758980017)
+verified implementation head `2561509cbe46a864957998a3b43b3c6797323633` at
+merge checkout `e85734b5885732cc2fecad87a3550877054f83ea`.
+The controller SHA-256 is
+`e73f3429f2536d2db686df59e56281c50d2080e0eb5d34206763920a26fc5f13`.
+Official checksum-pinned 20.8 build 20.102083 (`F0012008`) compiled with
+`success:true/errors:[]`; all **2 native aggregate, 72 mixed schedules,
+17 persistent rejection and 16 supported persistent lifecycle checks** passed.
+Compilation and all four compiled runtime invocations exited 0 with fresh
+complete reports, no unexpected engine-error/driver-timeout artifacts, and
+matching callback/mailbox/report owner identities.
+
+The actual native nonzero command had no response-time exit code, then exit 1
+at termination. Its termination callback aborted before the dependent marker
+command could run; the marker remained absent after the late window. Native
+success/no-response-handler queues continued despite False termination returns.
+Active abort preserved native termination; all eight owned lifecycle workers
+terminated. The original callback POSX2 reached the caller's unchanged resumptive
+handler and normal return continued the queue. The original rejection suite
+preserved all four POSX2 stacks, clean pre-reuse state and three real reuses.
+
+This verifies the supported termination-gated contract, not accepted-native
+`onError` reachability, actual ABORT survival, exact 20.7, Windows, installed
+facade behavior or live inference. The failures below remain part of the evidence.
+Documentation-only successors do not change this implementation/source pin;
+their check results must still be read from their own runs.
+
+## Diagnostic findings that required the approved timing migration
+
+Run [41757854630](https://github.com/miyako/llama-cpp/actions/runs/41757854630)
+at PR head `a4e0d0306188d91764806477dbc04c95ac62b09f` compiled cleanly on
+official pinned 20.8 build 102083 (`F0012008`). The native 2-check matrix,
+51 schedules and unchanged 17 rejection checks completed with clean exits.
+The new persistent lifecycle method **failed**: its nonzero-at-response assertion
+is false, and its ABORT attempt did not produce a later complete owner report.
+The strict gate remains red; no success summary exists.
+
+The tiny native `/usr/bin/true` and `/usr/bin/false` controls show exactly
+`{type:"response"}`, then `{type:"termination"}` as native event objects.
+`worker.exitCode` is undefined at response and becomes 0/1 at termination.
+The fixture must not treat a synthetic retired worker's already-known exit code,
+an undefined value, or stdout payload as native status-before-dispatch proof.
+The user explicitly approved keeping response notification at native timing and
+advancing only after the existing termination callback. The revised patch tests
+nonzero abortion there, rather than fabricating response-time status.
+Those source/fixture changes require a new hosted run; the earlier 51-check
+passes do not verify the revised 72-check progression.
+
+The ABORT fixture's handler captured original POSX2, current process 2 and
+`LifecycleProbe.response` as the error source, but later queued owner ticks
+did not execute, even when enqueued before yielding. The driver timed out.
+This is an observed owner/control-flow boundary, **not** a successful
+surviving-owner unwind cleanup test or proof of the owner's exact final state.
+The failing attempt is retained; no unchanged destructive-ABORT retry is justified.
+The current approval preserves caller handlers and promises no callback/cleanup
+after caller code destroys the owner.
+
+Earlier run
+[41757343167](https://github.com/miyako/llama-cpp/actions/runs/41757343167)
+compiled and emitted all 51 true assertions but correctly failed on an unexpected
+`Undefined collection` artifact. The new fixture batch now explicitly supplies
+aligned message/context arrays rather than exercising the pre-existing omitted
+collection-input branch. Run
+[41757484042](https://github.com/miyako/llama-cpp/actions/runs/41757484042)
+then passed those schedules and original rejection checks, but exposed fixture
+identity deep-copying and an invalid process-variable assumption in its error
+handler. Native identities are now passed by reference; error handlers capture
+through the invocation's unique report path. No diagnostic or clean-exit gate
+was waived.
+
+## Historical baseline evidence (before issue #24 implementation)
+
+The following attempts concern earlier source, not verification of the new patch.
+
+The initial hosted 20.8 run [41672156148](https://github.com/miyako/llama-cpp/actions/runs/41672156148) correctly stopped at compiler diagnostics: direct comparisons of typed object/function references in the fixture were accepted locally on 21 R4 but rejected on 20.8. The fixture now uses the documented [Collection.indexOf object-reference search](https://developer.4d.com/docs/20/API/CollectionClass#indexof), with same-reference and distinct-empty-object controls. No diagnostics were waived; the initial failed run remains visible.
 
 After that fixture correction, the local 21 R4 attempt `.build/controller-f7a7uw0v` emitted a fresh `success:true/errors:[]` compiler report but exited **-11 at shutdown**. The runner correctly failed and did not execute either test method. This is not a clean compilation/execution pass for the corrected fixture; the independently hosted 20.8 run is a separate validation path, not a way to relabel the local failure.
 
