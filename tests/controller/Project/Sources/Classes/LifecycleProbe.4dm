@@ -35,7 +35,7 @@ Class constructor($path : Text; $done : Object)
 
 Function start()
 	This.phase:="synthetic-continue"
-	This.schedule:=cs.Schedule.new(cs._CLI.new(); This.identities.copy())
+	This.schedule:=cs.Schedule.new(cs._CLI.new(); [This.identities[0]; This.identities[1]])
 	This.schedule["onError"]:=Formula(lifecycleProbe.simulated(This; $1; $2))
 	This.schedule.execute(["a"; "b"]; ["message-a"; "message-b"]; ["context-a"; "context-b"])
 	This.old:=This.schedule._active
@@ -109,10 +109,7 @@ Function record($name : Text; $receiver : Object; $worker : 4D.SystemWorker; $ev
 	If ($receiver.worker#Null)
 		$activePID:=$receiver.worker.pid
 	End if
-	This.caseReport.events.push({name: $name; receiver: sameReference($receiver; This.controller); pid: $worker.pid; type: $event.type; context: $event.context; exitCode: $worker.exitCode; activePID: $activePID; process: rejectionProcess; handler: Method called on error(ek local)})
-
-Function capture($errors : Collection)
-	This.caseReport.callbackErrors.push({errors: $errors; process: rejectionProcess; handler: Method called on error(ek local)})
+	This.caseReport.events.push({name: $name; receiver: sameReference($receiver; This.controller); pid: $worker.pid; type: $event.type; context: $event.context; exitCode: $worker.exitCode; activePID: $activePID; process: rejectionProcess; handler: Method called on error(ek local); event: OB Copy($event)})
 
 Function empty()->$empty : Boolean
 	$empty:=(This.controller.commands.length=0) && (This.controller._messages.length=0) && (This.controller._contexts.length=0)
@@ -137,7 +134,7 @@ Function tick()
 			This.schedule._onExecute(This.identities[1]; {type: "response"})
 			This.schedule._onComplete(This.identities[1]; {type: "termination"})
 			scheduleCheck((This.schedule.worker=Null) && This.schedule.complete; "persistent-synthetic-final-release"; This.report; "regression")
-			This.schedule:=cs.Schedule.new(cs._CLI.new(); This.identities.copy())
+			This.schedule:=cs.Schedule.new(cs._CLI.new(); [This.identities[0]; This.identities[1]])
 			This.schedule["onError"]:=Formula(lifecycleProbe.simulated(This; $1; $2))
 			This.schedule.execute(["a"; "b"]; ["message-a"; "message-b"]; ["context-a"; "context-b"])
 			This.simulatedAbort:=True
@@ -194,11 +191,17 @@ Function tick()
 						$valid:=$valid && (This.caseReport.events.length=2) && Not(This.marker.exists)
 						scheduleCheck($valid; "native-abort-preserves-callbacks"; This.report; "regression")
 					: (This.phase="callback-unwind")
+						If (File(This.path+".callback-abort.json").exists)
+							This.caseReport.callbackErrors.push(JSON Parse(File(This.path+".callback-abort.json").getText()))
+						End if
 						$valid:=$valid && (This.caseReport.events.length=2) && (This.caseReport.callbackErrors.length=1) && (This.caseReport.returned=0) && Not(This.marker.exists)
 						scheduleCheck($valid; "callback-unwind-no-dispatch"; This.report; "regression")
 						scheduleCheck(Method called on error(ek local)="lifecycleAbort"; "unwind-handler-unchanged"; This.report; "regression")
 						ON ERR CALL("probeError"; ek local)
 					: (This.phase="callback-resume")
+						If (File(This.path+".callback-resume.json").exists)
+							This.caseReport.callbackErrors.push(JSON Parse(File(This.path+".callback-resume.json").getText()))
+						End if
 						$valid:=$valid && (This.caseReport.events.length=4) && (This.caseReport.callbackErrors.length=1) && (This.caseReport.returned=1)
 						scheduleCheck($valid; "callback-resume-continues"; This.report; "regression")
 						scheduleCheck(Method called on error(ek local)="lifecycleResume"; "resume-handler-unchanged"; This.report; "regression")

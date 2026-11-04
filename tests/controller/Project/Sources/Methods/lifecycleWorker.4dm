@@ -15,8 +15,8 @@ Else
 	lifecycleProbe.tick()
 End if
 If (Not(lifecycleProbe.report.complete))
+	CALL WORKER(Current process; "lifecycleWorker"; "tick"; $path; $done)
 	If ($action#"start")
 		DELAY PROCESS(Current process; 6)
 	End if
-	CALL WORKER(Current process; "lifecycleWorker"; "tick"; $path; $done)
 End if
