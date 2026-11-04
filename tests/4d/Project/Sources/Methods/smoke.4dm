@@ -214,6 +214,63 @@ $before:=$worker.calls
 $model.start()
 check(($worker.calls=($before+1)) && ($model.integrity.status="unverified"); "Router start changed"; $state)
 
+$model:=cs.IntegrityModel.new()
+$model.event.onError:=Formula(captureError($state; This; $1; $2))
+$model.options.model:=$legacy
+$model.files:=[]
+$before:=$worker.calls
+$state.callbacks.clear()
+$model.runDownloads()
+check(($worker.calls=($before+1)) && ($state.callbacks.length=0); "Local model with nothing to download did not start once"; $state)
+$model.start()
+check($worker.calls=($before+1); "Explicit start after local start launched again"; $state)
+
+$model:=cs.IntegrityModel.new()
+$model.event.onError:=Formula(captureError($state; This; $1; $2))
+$model.files:=[]
+$before:=$worker.calls
+$state.callbacks.clear()
+$model.runDownloads()
+check(($worker.calls=$before) && ($state.callbacks.length=1) && ($state.callbacks.first().code=2); "Missing model with nothing to download did not report onError"; $state)
+
+$model:=cs.IntegrityModel.new()
+$model.event.onError:=Formula(captureError($state; This; $1; $2))
+$model.options.model:=$root.file("missing.gguf")
+$model.files:=[]
+$before:=$worker.calls
+$state.callbacks.clear()
+$model.runDownloads()
+check(($worker.calls=$before) && ($state.callbacks.length=1) && (Position("missing.gguf"; $state.callbacks.first().message)>0); "Nonexistent local model started or error lacked path"; $state)
+
+$model:=cs.IntegrityModel.new()
+$model.options.models_dir:=$root
+$model.files:=[]
+$before:=$worker.calls
+$state.callbacks.clear()
+$model.runDownloads()
+check(($worker.calls=$before) && ($state.callbacks.length=0); "Router with nothing to download pre-empted the start method"; $state)
+
+$model:=cs.IntegrityModel.new()
+$model.options.models_dir:=$root
+$model.files:=[record($good; $digest; "router-cached")]
+$before:=$worker.calls
+$model.runDownloads()
+$model.start()
+check($worker.calls=($before+1); "Router with cached download started twice"; $state)
+
+var $silent : cs.NullEventModel
+$silent:=cs.NullEventModel.new()
+check(($silent.event=Null) && ($silent.options.port=8080); "Null event construction failed"; $state)
+$silent.files:=[]
+$before:=$worker.calls
+$silent.runDownloads()
+check($worker.calls=$before; "Null event without model started"; $state)
+$silent:=cs.NullEventModel.new()
+$silent.options.model:=$legacy
+$silent.files:=[]
+$silent.runDownloads()
+check($worker.calls=($before+1); "Null event with local model did not start"; $state)
+
 var $resultPath : Text
 var $parameter : Integer
 $parameter:=Get database parameter(User param value; $resultPath)

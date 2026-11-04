@@ -191,6 +191,8 @@ Unless the server is already running (in which case the constructor does nothing
 1. The specified model is downloaded via HTTP
 2. The `llama-server` program is started
 
+If there is nothing to download (no `huggingfaces`, or none of them resolves to a file), the server is started with `options.model` when it is an existing local file. Otherwise `event.onError` receives an error with code `2` and the server is not started; router configurations (`models_preset` or `models_dir`) start as before. The server is launched at most once per wrapper attempt. `event` may be `Null`, in which case no callbacks are delivered.
+
 Now you can test the server:
 
 ```

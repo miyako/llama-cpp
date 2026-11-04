@@ -238,7 +238,7 @@ def main():
     else:
         if args.compile and result.get("compiledMode") is not True:
             raise RuntimeError("4D silently fell back from compiled execution")
-        if result.get("passed", 0) != 35:
+        if result.get("passed", 0) != 44:
             raise RuntimeError("Integrity assertions did not all execute")
         print("PASS: real 4D integrity execution; model transfer/server are controlled doubles.")
         print("Hash dependency: " + ("supplied component" if hash_component else "small-file 4D double"))
