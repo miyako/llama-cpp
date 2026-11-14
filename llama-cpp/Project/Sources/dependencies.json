@@ -1,10 +1,6 @@
 {
 	"version": 2100,
 	"dependencies": {
-		"hash": {
-			"github": "miyako/hash",
-			"tag": "20.0.1"
-		},
 		"tcp": {
 			"github": "miyako/tcp",
 			"version": "latest"
@@ -15,6 +11,10 @@
 		},
 		"event": {
 			"github": "miyako/event",
+			"version": "latest"
+		},
+		"hash": {
+			"github": "miyako/hash",
 			"version": "latest"
 		}
 	}
