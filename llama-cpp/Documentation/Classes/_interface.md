@@ -28,8 +28,9 @@ Obtains the server worker via `cs.llama.workers.worker` and calls `terminate()` 
 ## Examples
 
 ```4d
-// Terminate from anywhere — llama.new() with no arguments returns
-// a lightweight handle without starting a new server
+// Terminate from anywhere. llama.new() with no arguments does not launch a
+// server: if one is running on 8080 the constructor does nothing; otherwise
+// there is no model to start, so it stops (onError code 2 if an event is given)
 var $llama : cs.llama.llama
 $llama:=cs.llama.llama.new()
 $llama.terminate()

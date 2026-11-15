@@ -15,9 +15,11 @@ Class constructor($port : Integer; $huggingfaces : cs:C1710.event.huggingfaces; 
 	This:C1470.event:=$event
 	This:C1470._onResponse:=$formula
 	This:C1470.options:=$options#Null:C1517 ? $options : {}
-	This:C1470.options.onTerminate:=This:C1470.event.onTerminate
-	This:C1470.options.onStdErr:=This:C1470.event.onStdErr
-	This:C1470.options.onStdOut:=This:C1470.event.onStdOut
+	If (This:C1470.event#Null:C1517)
+		This:C1470.options.onTerminate:=This:C1470.event.onTerminate
+		This:C1470.options.onStdErr:=This:C1470.event.onStdErr
+		This:C1470.options.onStdOut:=This:C1470.event.onStdOut
+	End if 
 	This:C1470.options.port:=$port
 	This:C1470.offline:=False:C215
 	This:C1470.integrity:={status: "unverified"; failed: False:C215; results: []}
@@ -134,6 +136,11 @@ Function download()
 	This:C1470._downloadsStarted:=True:C214
 	var $pending : Collection
 	$pending:=This:C1470.files
+	If ($pending.length=0)
+		This:C1470._downloadsComplete:=True:C214
+		This:C1470._onNothingToDownload()
+		return 
+	End if 
 	var $file : Object
 	For each ($file; $pending)
 		$file.downloadId:=Generate UUID:C1066
@@ -295,6 +302,10 @@ Function _integrityError($file : 4D:C1709.File; $expected : Text; $actual : Text
 	$error.details:=$details
 	This:C1470.integrity.error:=$error
 	LOG EVENT:C667(Into 4D debug message; "llama: "+$error.message)
+	This:C1470._notifyError($error)
+
+Function _notifyError($error : cs:C1710.event.error)
+
 	If (This:C1470.event#Null:C1517)
 		If (Value type:C1509(This:C1470.event.onError)=Is object:K8:27)
 			If (OB Instance of:C1731(This:C1470.event.onError; 4D:C1709.Function))
@@ -302,6 +313,10 @@ Function _integrityError($file : 4D:C1709.File; $expected : Text; $actual : Text
 			End if
 		End if
 	End if
+
+Function _onNothingToDownload()
+	//virtual
+	This:C1470.start()
 
 Function models() : cs:C1710.event.models
 	//virtual

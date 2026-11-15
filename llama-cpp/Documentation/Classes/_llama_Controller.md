@@ -57,7 +57,7 @@ already identifies a replacement.
 
 ### Custom controller subclass
 
-To handle stdout while the server is running, create a subclass of `_llama_Controller` and override `onData`:
+stdout/stderr are quiet by default on purpose: a long-running server can produce a large amount of output. Prefer `log_file` in the server options. If you do handle streams, keep the handler bounded (do not accumulate the data). A subclass of `_llama_Controller` can override `onData`:
 
 ```4d
 // In your custom controller class (e.g. cs.llama.MyController):
@@ -67,13 +67,15 @@ Function onData($worker : 4D.SystemWorker; $params : Object)
     LOG EVENT(Into 4D debug message; $params.data)
 ```
 
-Then pass it when constructing the server:
+`cs.llama.llama.new()` does not accept a controller and always uses the default `_llama_Controller`. A custom controller is used only when you pass its class to `_server` yourself; `_llama` accepts it when it extends `_llama_Controller`:
 
 ```4d
-$llama:=cs.llama.llama.new($port; $huggingfaces; $homeFolder; $options; $event)
-// _llama automatically detects MyController extends _llama_Controller
-// and uses it in place of the default
+var $server : cs.llama._server
+$server:=cs.llama._server.new(cs.MyController)
+$server.start($options)  // $options must already contain model, port, etc.
 ```
+
+This bypasses the facade's port check, Hugging Face download and SHA-256 verification.
 
 ## See also
 

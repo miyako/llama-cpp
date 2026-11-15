@@ -63,6 +63,10 @@ var $llama : cs.llama.llama
 $llama:=cs.llama.llama.new()
 ```
 
+With no model, nothing is launched: there is nothing to download and no `options.model`, so startup stops (with `onError` code `2` when an `event` is given). Use this form to obtain a handle, for example to call `terminate()`.
+
+If `huggingfaces` resolves no files, an existing local `options.model` is started instead; router options (`models_preset`, `models_dir`) start as usual.
+
 ### Chat completion
 
 ```4d
@@ -72,7 +76,7 @@ $homeFolder:=Folder(fk home folder).folder(".GGUF")
 var $event : cs.event.event
 $event:=cs.event.event.new()
 $event.onError:=Formula(ALERT($2.message))
-$event.onSuccess:=Formula(ALERT($2.models.extract("name").join(",")+" loaded!"))
+$event.onSuccess:=Formula(ALERT($2.models.extract("name").join(",")+" launch requested"))  // not yet ready; poll /health
 
 var $huggingface : cs.event.huggingface
 $huggingface:=cs.event.huggingface.new(\

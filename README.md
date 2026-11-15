@@ -105,7 +105,7 @@ Else
     */
     
     $event.onError:=Formula(ALERT($2.message))
-    $event.onSuccess:=Formula(ALERT($2.models.extract("name").join(",")+" loaded!"))
+    $event.onSuccess:=Formula(ALERT($2.models.extract("name").join(",")+" launch requested"))  //not yet ready; poll /health
     $event.onData:=Formula(LOG EVENT(Into 4D debug message; This.file.fullName+":"+String((This.range.end/This.range.length)*100; "###.00%")))
     $event.onData:=Formula(MESSAGE(This.file.fullName+":"+String((This.range.end/This.range.length)*100; "###.00%")))
     $event.onResponse:=Formula(LOG EVENT(Into 4D debug message; This.file.fullName+":download complete"))
@@ -175,6 +175,8 @@ Unless the server is already running (in which case the constructor does nothing
 
 1. The specified model is downloaded via HTTP
 2. The `llama-server` program is started
+
+If there is nothing to download (no `huggingfaces`, or none of them resolves to a file), the server is started with `options.model` when it is an existing local file. Otherwise `event.onError` receives an error with code `2` and the server is not started; router configurations (`models_preset` or `models_dir`) start as before. The server is launched at most once per wrapper attempt. `event` may be `Null`, in which case no callbacks are delivered.
 
 Now you can test the server:
 
