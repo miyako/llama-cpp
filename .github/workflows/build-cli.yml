@@ -1,14 +1,20 @@
 name: Build CLI
 
 on:
+  schedule:
+    # Sunday, 03:37 UTC (12:37 JST)
+    - cron: '37 3 * * 0'
+
   workflow_dispatch:
     inputs:
       release_tag:
-        description: Published ggml-org/llama.cpp release tag (for example b9374)
-        required: true
+        description: >-
+          Published ggml-org/llama.cpp release tag.
+          Leave empty to use latest.
+        required: false
         type: string
       mode:
-        description: Component version increment passed to Publish
+        description: Component version increment
         required: true
         type: choice
         default: patch
@@ -29,31 +35,74 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       sha: ${{ steps.release.outputs.sha }}
+      release_tag: ${{ steps.release.outputs.tag }}
+      changed: ${{ steps.release.outputs.changed }}
+
     steps:
-      - name: Resolve published release
+      - uses: actions/checkout@v4
+
+      - name: Resolve published upstream release
         id: release
         env:
           GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: ${{ inputs.release_tag }}
+          INPUT_TAG: ${{ inputs.release_tag }}
         shell: bash
         run: |
           set -euo pipefail
+
           if [[ "$GITHUB_REF" != refs/heads/main ]]; then
-            echo "::error::Run Build CLI from main; it replaces the bundled binaries on main."
+            echo "::error::Run Build CLI from main."
             exit 1
           fi
+
+          RELEASE_TAG="$INPUT_TAG"
+
+          if [[ -z "$RELEASE_TAG" ]]; then
+            RELEASE_TAG=$(gh api \
+              repos/ggml-org/llama.cpp/releases/latest \
+              --jq '.tag_name')
+          fi
+
           if [[ ! "$RELEASE_TAG" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ ]]; then
-            echo "::error::Enter a release tag, not a branch, URL, or commit."
+            echo "::error::Invalid release tag."
             exit 1
           fi
-          gh api "repos/ggml-org/llama.cpp/releases/tags/$RELEASE_TAG" \
-            --jq 'select(.draft == false) | .tag_name' > release-tag.txt
+
+          # Verify this is a published, non-draft release.
+          gh api \
+            "repos/ggml-org/llama.cpp/releases/tags/$RELEASE_TAG" \
+            --jq 'select(.draft == false) | .tag_name' \
+            > release-tag.txt
+
           test "$(cat release-tag.txt)" = "$RELEASE_TAG"
-          sha=$(gh api "repos/ggml-org/llama.cpp/commits/$RELEASE_TAG" --jq .sha)
-          echo "sha=$sha" >> "$GITHUB_OUTPUT"
-          echo "Building ggml-org/llama.cpp $RELEASE_TAG ($sha)" >> "$GITHUB_STEP_SUMMARY"
+
+          SHA=$(gh api \
+            "repos/ggml-org/llama.cpp/commits/$RELEASE_TAG" \
+            --jq '.sha')
+
+          CURRENT_SHA=$(awk 'NR == 1 {print $2}' \
+            .github/llama-cpp-upstream.txt 2>/dev/null || true)
+
+          CHANGED=true
+
+          if [[ "$CURRENT_SHA" == "$SHA" ]]; then
+            CHANGED=false
+          fi
+
+          echo "sha=$SHA" >> "$GITHUB_OUTPUT"
+          echo "tag=$RELEASE_TAG" >> "$GITHUB_OUTPUT"
+          echo "changed=$CHANGED" >> "$GITHUB_OUTPUT"
+
+          echo "Upstream release: $RELEASE_TAG ($SHA)" \
+            >> "$GITHUB_STEP_SUMMARY"
+
+          if [[ "$CHANGED" == false ]]; then
+            echo "Already built. Skipping platform builds." \
+              >> "$GITHUB_STEP_SUMMARY"
+          fi
 
   macos:
+    if: needs.source.outputs.changed == 'true'
     needs: source
     runs-on: macos-15
     timeout-minutes: 120
@@ -198,6 +247,7 @@ jobs:
           rm -f "$CERTIFICATE_PATH"
 
   windows:
+    if: needs.source.outputs.changed == 'true'
     needs: source
     runs-on: windows-2022
     timeout-minutes: 120
@@ -312,6 +362,7 @@ jobs:
           if-no-files-found: error
 
   replace-and-publish:
+    if: needs.source.outputs.changed == 'true'
     needs: [source, macos, windows]
     runs-on: macos-15
     permissions:
@@ -359,7 +410,10 @@ jobs:
           codesign --verify --strict --verbose=2 llama-cpp/Resources/bin/macOS/llama-server
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add llama-cpp/Resources/bin/macOS/llama-server \
+          printf '%s %s\n' "$RELEASE_TAG" "$UPSTREAM_SHA" \
+            > .github/llama-cpp-upstream.txt
+          git add .github/llama-cpp-upstream.txt \
+            llama-cpp/Resources/bin/macOS/llama-server \
             llama-cpp/Resources/bin/Windows/llama-server.exe \
             llama-cpp/Resources/bin/WindowsARM/llama-server.exe
           if ! git diff --cached --quiet; then
@@ -375,6 +429,10 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          gh workflow run publish.yml --repo "$GITHUB_REPOSITORY" --ref main \
-            -f use_self_hosted=false -f "mode=$VERSION_MODE"
+          gh workflow run publish.yml \
+            --repo "$GITHUB_REPOSITORY" \
+            --ref main \
+            -f use_self_hosted=false \
+            -f "mode=$VERSION_MODE" \
+            -f publish=true
           echo "Dispatched Publish on main ($VERSION_MODE)." >> "$GITHUB_STEP_SUMMARY"
