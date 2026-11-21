@@ -8,3 +8,4 @@ b9934/*
 /tools/4dlsp/
 /.build/
 __pycache__/
+**.DS_Store
